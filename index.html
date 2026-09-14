@@ -130,7 +130,7 @@
             const [toast, setToast] = useState(null);
             const [rooms, setRooms] = useState(DEFAULT_ROOMS);
             const [schoolLogo, setSchoolLogo] = useState("");
-            const [schoolBanner, setSchoolBanner] = useState("2.jpg"); // Tetapan Banner Kekal
+            const [schoolBanner, setSchoolBanner] = useState("2.png"); // Tetapan Banner Kekal
 
             useEffect(() => {
                 // Initialize Dark Mode from LocalStorage
@@ -167,7 +167,9 @@
             const applySettings = (fetchedSettings) => {
                 // Update Logo & Banner
                 if (fetchedSettings['schoolLogo']) setSchoolLogo(fetchedSettings['schoolLogo']);
-                if (fetchedSettings['schoolBanner']) setSchoolBanner(fetchedSettings['schoolBanner']);
+                
+                // Paksa sistem guna 2.png jika ruangan tetapan banner di Admin Panel kosong
+                setSchoolBanner(fetchedSettings['schoolBanner'] || "2.png");
                 
                 // Update Room Images
                 const updatedRooms = DEFAULT_ROOMS.map(room => {
