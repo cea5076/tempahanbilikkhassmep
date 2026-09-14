@@ -128,9 +128,9 @@
             const [loading, setLoading] = useState(true);
             const [isOnline, setIsOnline] = useState(navigator.onLine);
             const [toast, setToast] = useState(null);
-            
             const [rooms, setRooms] = useState(DEFAULT_ROOMS);
             const [schoolLogo, setSchoolLogo] = useState("");
+            const [schoolBanner, setSchoolBanner] = useState("2.jpg"); // Tetapan Banner Kekal
 
             useEffect(() => {
                 // Initialize Dark Mode from LocalStorage
@@ -165,8 +165,9 @@
             }, []);
 
             const applySettings = (fetchedSettings) => {
-                // Update Logo
+                // Update Logo & Banner
                 if (fetchedSettings['schoolLogo']) setSchoolLogo(fetchedSettings['schoolLogo']);
+                if (fetchedSettings['schoolBanner']) setSchoolBanner(fetchedSettings['schoolBanner']);
                 
                 // Update Room Images
                 const updatedRooms = DEFAULT_ROOMS.map(room => {
@@ -863,10 +864,17 @@
                                         <i className="fas fa-info-circle mr-2"></i> Paste direct image URLs (e.g. ending in .jpg, .png). Avoid standard Google Drive viewer links. Use PostImages.org for easy hosting.
                                     </div>
                                     
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-2">School Logo URL</label>
-                                        <input type="text" value={localSettings['schoolLogo'] || ''} onChange={(e) => handleSettingChange('schoolLogo', e.target.value)}
-                                            className={`w-full p-3 rounded-xl border outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`} placeholder="https://..." />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">School Logo URL</label>
+                                            <input type="text" value={localSettings['schoolLogo'] || ''} onChange={(e) => handleSettingChange('schoolLogo', e.target.value)}
+                                                className={`w-full p-3 rounded-xl border outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`} placeholder="https://..." />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">School Banner URL</label>
+                                            <input type="text" value={localSettings['schoolBanner'] || ''} onChange={(e) => handleSettingChange('schoolBanner', e.target.value)}
+                                                className={`w-full p-3 rounded-xl border outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`} placeholder="e.g. 2.jpg or https://..." />
+                                        </div>
                                     </div>
 
                                     <h3 className="font-bold text-lg pt-4 border-t border-slate-200 dark:border-slate-700">Room Images</h3>
@@ -1017,19 +1025,33 @@
                     </div>
 
                     {/* Main Content Area */}
-                    <div className="flex-1 p-6 md:p-10 h-screen overflow-y-auto relative">
-                        {loading && !bookings.length && (
-                            <div className="absolute inset-0 z-40 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm flex flex-col items-center justify-center">
-                                <div className="loader mb-4"></div>
-                                <p className="font-semibold text-blue-600 dark:text-blue-400 animate-pulse">Loading secure connection...</p>
-                            </div>
-                        )}
+                    <div className="flex-1 flex flex-col h-screen relative overflow-hidden">
                         
-                        <div className="max-w-6xl mx-auto pb-10">
-                            {activeTab === 'dashboard' && <DashboardView />}
-                            {activeTab === 'book' && <BookingForm />}
-                            {activeTab === 'list' && <BookingList />}
-                            {activeTab === 'admin' && <AdminPanel />}
+                        {/* --- FIXED BANNER AREA --- */}
+                        <div className={`w-full flex-shrink-0 h-28 sm:h-36 md:h-48 lg:h-56 border-b ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'} flex items-center justify-center relative z-10 shadow-sm`}>
+                            <img 
+                                src={schoolBanner} 
+                                alt="Banner SMK Pekan" 
+                                className="w-full h-full object-cover object-top"
+                                onError={(e) => { e.target.src = 'https://placehold.co/1200x300/1e293b/ffffff?text=School+Banner' }}
+                            />
+                        </div>
+
+                        {/* --- SCROLLABLE CONTENT AREA --- */}
+                        <div className="flex-1 overflow-y-auto p-6 md:p-10 relative">
+                            {loading && !bookings.length && (
+                                <div className="absolute inset-0 z-40 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm flex flex-col items-center justify-center">
+                                    <div className="loader mb-4"></div>
+                                    <p className="font-semibold text-blue-600 dark:text-blue-400 animate-pulse">Loading secure connection...</p>
+                                </div>
+                            )}
+                            
+                            <div className="max-w-6xl mx-auto pb-10">
+                                {activeTab === 'dashboard' && <DashboardView />}
+                                {activeTab === 'book' && <BookingForm />}
+                                {activeTab === 'list' && <BookingList />}
+                                {activeTab === 'admin' && <AdminPanel />}
+                            </div>
                         </div>
                     </div>
 
