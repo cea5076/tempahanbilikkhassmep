@@ -1030,11 +1030,11 @@
                     <div className="flex-1 flex flex-col h-screen relative overflow-hidden">
                         
                         {/* --- FIXED BANNER AREA --- */}
-                        <div className={`w-full flex-shrink-0 h-28 sm:h-36 md:h-48 lg:h-56 border-b ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'} flex items-center justify-center relative z-10 shadow-sm`}>
+                        <div className={`w-full flex-shrink-0 border-b ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'} flex items-center justify-center relative z-10 shadow-sm overflow-hidden`}>
                             <img 
                                 src={schoolBanner} 
                                 alt="Banner SMK Pekan" 
-                                className="w-full h-full object-cover object-top"
+                                className="w-full h-auto max-h-32 sm:max-h-48 md:max-h-56 lg:max-h-64 object-contain object-center"
                                 onError={(e) => { e.target.src = 'https://placehold.co/1200x300/1e293b/ffffff?text=School+Banner' }}
                             />
                         </div>
