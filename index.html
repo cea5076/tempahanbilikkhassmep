@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMK Pekan Special Room Booking</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf.js for PDF Printing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        navy: { 800: '#1a2942', 900: '#0f172a' },
+                        sky: { 50: '#f0f9ff', 100: '#e0f2fe' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Glassmorphism Utilities */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        .dark .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .glass-input {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+
+        .dark .glass-input {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Custom Scrollbar for better UI */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.8); }
+    </style>
+</head>
+<body class="bg-sky-50 dark:bg-navy-900 text-slate-800 dark:text-slate-200 min-h-screen">
+    
+    <!-- Tapak untuk React App beroperasi -->
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // Sila masukkan URL Web App Google Apps Script anda di sini (bermula dengan https://script.google.com/...)
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx1yKnImwpK0ArDAlpV0ls15GLWoaeN9iPcrGBPMi5SdWBLMKJUrAMqkJITZExoydx3kA/exec"; 
+
+        const ROOM_DETAILS = [
+            { name: "Makmal Komputer", image: "https://placehold.co/600x400/1e293b/60a5fa?text=Makmal+Komputer" },
+            { name: "Digital Hub", image: "https://placehold.co/600x400/1e293b/a78bfa?text=Digital+Hub" },
+            { name: "Pusat Sumber Al Ghazali", image: "https://placehold.co/600x400/1e293b/34d399?text=Pusat+Sumber" },
+            { name: "Bilik Eksplorasi Sarjana", image: "https://placehold.co/600x400/1e293b/f472b6?text=Bilik+Eksplorasi" },
+            { name: "Anjung Suluh Budiman", image: "https://placehold.co/600x400/1e293b/fbbf24?text=Anjung+Suluh" },
+            { name: "Dewan Aspirasi Sh Mohmed Puzi", image: "https://placehold.co/600x400/1e293b/38bdf8?text=Dewan+Aspirasi" },
+            { name: "Bilik Masakan SRT", image: "https://placehold.co/600x400/1e293b/fb923c?text=Bilik+Masakan" },
+            { name: "Bilik Jahitan SRT", image: "https://placehold.co/600x400/1e293b/c084fc?text=Bilik+Jahitan" },
+            { name: "Bengkel MPV", image: "https://placehold.co/600x400/1e293b/818cf8?text=Bengkel+MPV" },
+            { name: "Bilik SAL", image: "https://placehold.co/600x400/1e293b/94a3b8?text=Bilik+SAL" },
+            { name: "Bengkel RBT 1", image: "https://placehold.co/600x400/1e293b/4ade80?text=Bengkel+RBT+1" },
+            { name: "Bengkel RBT 2", image: "https://placehold.co/600x400/1e293b/4ade80?text=Bengkel+RBT+2" },
+            { name: "Bengkel RBT 3", image: "https://placehold.co/600x400/1e293b/4ade80?text=Bengkel+RBT+3" }
+        ];
+
+        const TIMES_MON_THU = [
+            "07:40 AM", "08:10 AM", "08:40 AM", "09:10 AM", "09:40 AM", 
+            "10:10 AM", "10:40 AM", "11:10 AM", "11:40 AM", "12:10 PM", 
+            "12:40 PM", "01:10 PM", "01:40 PM", "02:10 PM", "02:40 PM", "03:10 PM", "03:40 PM"
+        ];
+
+        const TIMES_FRI = [
+            "07:30 AM", "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", 
+            "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM"
+        ];
+
+        const DAYS_OF_WEEK = [
+            { value: 1, label: "Monday" },
+            { value: 2, label: "Tuesday" },
+            { value: 3, label: "Wednesday" },
+            { value: 4, label: "Thursday" },
+            { value: 5, label: "Friday" }
+        ];
+
+        // Format fungsi untuk paparan masa yang kemas (Cth: 08:10 AM - 09:10 AM)
+        const formatTimeRange = (timeSlotStr) => {
+            if (!timeSlotStr) return '';
+            const slots = timeSlotStr.split(',');
+            const start = slots[0];
+            const lastStart = slots[slots.length - 1];
+
+            let end = '';
+            let idx = TIMES_MON_THU.indexOf(lastStart);
+            if (idx !== -1 && idx + 1 < TIMES_MON_THU.length) end = TIMES_MON_THU[idx + 1];
+            else {
+                idx = TIMES_FRI.indexOf(lastStart);
+                if (idx !== -1 && idx + 1 < TIMES_FRI.length) end = TIMES_FRI[idx + 1];
+            }
+            return end ? `${start} - ${end}` : start;
+        };
+
+        // --- MOCK BACKEND (Local Storage fallback for testing without GAS) ---
+        const mockAPI = {
+            getData: async () => {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        const bookings = JSON.parse(localStorage.getItem('smkpekan_bookings') || '[]');
+                        const fixedSchedules = JSON.parse(localStorage.getItem('smkpekan_fixed') || '[]');
+                        const settings = JSON.parse(localStorage.getItem('smkpekan_settings') || '{}');
+                        
+                        // Seed initial demo data if empty
+                        if (fixedSchedules.length === 0) {
+                            fixedSchedules.push({ id: 'f1', dayOfWeek: 1, timeSlot: "08:10 AM", room: "Makmal Komputer", purpose: "Science Class 5A (Fixed)" });
+                            localStorage.setItem('smkpekan_fixed', JSON.stringify(fixedSchedules));
+                        }
+                        resolve({ bookings, fixedSchedules, settings });
+                    }, 500);
+                });
+            },
+            postData: async (action, payload) => {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        if (action === 'add') {
+                            const data = JSON.parse(localStorage.getItem('smkpekan_bookings') || '[]');
+                            data.push(payload.data);
+                            localStorage.setItem('smkpekan_bookings', JSON.stringify(data));
+                        } else if (action === 'delete') {
+                            let data = JSON.parse(localStorage.getItem('smkpekan_bookings') || '[]');
+                            data = data.filter(item => item.id !== payload.id);
+                            localStorage.setItem('smkpekan_bookings', JSON.stringify(data));
+                        } else if (action === 'addFixed') {
+                            const data = JSON.parse(localStorage.getItem('smkpekan_fixed') || '[]');
+                            data.push(payload.data);
+                            localStorage.setItem('smkpekan_fixed', JSON.stringify(data));
+                        } else if (action === 'deleteFixed') {
+                            let data = JSON.parse(localStorage.getItem('smkpekan_fixed') || '[]');
+                            data = data.filter(item => item.id !== payload.id);
+                            localStorage.setItem('smkpekan_fixed', JSON.stringify(data));
+                        } else if (action === 'updateSettings') {
+                            localStorage.setItem('smkpekan_settings', JSON.stringify(payload.data));
+                        }
+                        resolve({ status: 'success' });
+                    }, 500);
+                });
+            }
+        };
+
+        // --- MAIN APP COMPONENT ---
+        const App = () => {
+            const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+            const [activeTab, setActiveTab] = useState('dashboard');
+            
+            const [bookings, setBookings] = useState([]);
+            const [fixedSchedules, setFixedSchedules] = useState([]);
+            const [settings, setSettings] = useState({});
+            
+            const [loading, setLoading] = useState(true);
+            const [isOnline, setIsOnline] = useState(navigator.onLine);
+            const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+            useEffect(() => {
+                document.documentElement.classList.toggle('dark', darkMode);
+                localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+            }, [darkMode]);
+
+            useEffect(() => {
+                const handleOnline = () => setIsOnline(true);
+                const handleOffline = () => setIsOnline(false);
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
+                return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
+            }, []);
+
+            const fetchBookings = async () => {
+                setLoading(true);
+                try {
+                    let responseData;
+                    if (SCRIPT_URL) {
+                        const response = await fetch(SCRIPT_URL);
+                        responseData = await response.json();
+                    } else {
+                        responseData = await mockAPI.getData();
+                    }
+                    
+                    setBookings(responseData.bookings || []);
+                    setFixedSchedules(responseData.fixedSchedules || []);
+                    setSettings(responseData.settings || {});
+                } catch (error) {
+                    showToast('Network data fetch error.', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => { fetchBookings(); }, []);
+
+            const showToast = (message, type = 'success') => {
+                setToast({ show: true, message, type });
+                setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+            };
+
+            // Helper to get room image from settings or fallback to placeholder
+            const getRoomImage = (roomName) => {
+                return settings[`room_${roomName}`] || `https://placehold.co/600x400/1e293b/60a5fa?text=${encodeURIComponent(roomName)}`;
+            };
+
+            return (
+                <div className="flex h-screen overflow-hidden">
+                    {/* Navigation Sidebar */}
+                    <nav className="glass-panel w-full md:w-64 md:h-full fixed md:relative z-20 flex md:flex-col justify-between p-4 bottom-0 md:bottom-auto border-t md:border-t-0 md:border-r border-white/20">
+                        <div className="hidden md:flex flex-col items-center mb-6 pt-4 text-center">
+                            {settings.logo ? (
+                                <img src={settings.logo} alt="Logo" className="w-20 h-20 rounded-full object-cover shadow-lg mb-3 bg-white" 
+                                     onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/100x100/1e293b/ffffff?text=Logo" }} />
+                            ) : (
+                                <div className="w-20 h-20 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg mb-3">
+                                    <i className="fa-solid fa-school"></i>
+                                </div>
+                            )}
+                            <h1 className="font-bold text-lg leading-tight">SMK PEKAN</h1>
+                            <p className="text-xs opacity-70">Room Booking System</p>
+                            
+                            <div className="mt-4 flex items-center space-x-2 bg-white/20 dark:bg-black/20 rounded-full px-3 py-1 text-xs">
+                                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
+                                <span>{isOnline ? 'Cloud Active' : 'Offline'}</span>
+                            </div>
+                        </div>
+
+                        {/* Menus */}
+                        <div className="flex md:flex-col w-full md:w-auto justify-around md:justify-start gap-2 md:flex-1">
+                            <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col md:flex-row items-center p-2 md:p-3 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-blue-500 text-white shadow-md' : 'hover:bg-white/30 dark:hover:bg-black/30'}`}>
+                                <i className="fa-solid fa-chart-pie md:mr-3 text-lg md:text-base"></i>
+                                <span className="text-[10px] md:text-sm mt-1 md:mt-0 font-medium">Dashboard</span>
+                            </button>
+                            <button onClick={() => setActiveTab('booking')} className={`flex flex-col md:flex-row items-center p-2 md:p-3 rounded-xl transition-all ${activeTab === 'booking' ? 'bg-blue-500 text-white shadow-md' : 'hover:bg-white/30 dark:hover:bg-black/30'}`}>
+                                <i className="fa-solid fa-calendar-plus md:mr-3 text-lg md:text-base"></i>
+                                <span className="text-[10px] md:text-sm mt-1 md:mt-0 font-medium">Booking</span>
+                            </button>
+                            <button onClick={() => setActiveTab('list')} className={`flex flex-col md:flex-row items-center p-2 md:p-3 rounded-xl transition-all ${activeTab === 'list' ? 'bg-blue-500 text-white shadow-md' : 'hover:bg-white/30 dark:hover:bg-black/30'}`}>
+                                <i className="fa-solid fa-list-check md:mr-3 text-lg md:text-base"></i>
+                                <span className="text-[10px] md:text-sm mt-1 md:mt-0 font-medium">Reports</span>
+                            </button>
+                            <button onClick={() => setActiveTab('admin')} className={`flex flex-col md:flex-row items-center p-2 md:p-3 rounded-xl transition-all ${activeTab === 'admin' ? 'bg-indigo-500 text-white shadow-md' : 'hover:bg-white/30 dark:hover:bg-black/30 text-indigo-700 dark:text-indigo-300'}`}>
+                                <i className="fa-solid fa-gear md:mr-3 text-lg md:text-base"></i>
+                                <span className="text-[10px] md:text-sm mt-1 md:mt-0 font-medium">Settings</span>
+                            </button>
+                        </div>
+
+                        {/* Bottom Utilities */}
+                        <div className="hidden md:flex flex-col gap-3 pb-4">
+                            <button onClick={fetchBookings} className="flex items-center justify-center p-3 rounded-xl hover:bg-white/30 dark:hover:bg-black/30 transition-all text-sm">
+                                <i className={`fa-solid fa-rotate-right mr-2 ${loading ? 'animate-spin' : ''}`}></i>
+                                Refresh Data
+                            </button>
+                            <button onClick={() => setDarkMode(!darkMode)} className="flex items-center justify-center p-3 rounded-xl bg-white/20 dark:bg-black/40 hover:bg-white/40 transition-all text-sm shadow-inner border border-white/10">
+                                {darkMode ? <><i className="fa-solid fa-sun text-yellow-400 mr-2"></i> Light Mode</> : <><i className="fa-solid fa-moon text-indigo-800 mr-2"></i> Dark Mode</>}
+                            </button>
+                        </div>
+                    </nav>
+
+                    {/* Main Content Area */}
+                    <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-24 md:pb-8 pt-16 md:pt-8 w-full">
+                        {loading && activeTab === 'dashboard' ? (
+                            <div className="flex h-full items-center justify-center">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                            </div>
+                        ) : (
+                            <>
+                                {activeTab === 'dashboard' && <Dashboard bookings={bookings} fixedSchedules={fixedSchedules} settings={settings} />}
+                                {activeTab === 'booking' && <BookingForm bookings={bookings} fixedSchedules={fixedSchedules} settings={settings} onRefresh={fetchBookings} showToast={showToast} setTab={setActiveTab} />}
+                                {activeTab === 'list' && <BookingList bookings={bookings} onRefresh={fetchBookings} showToast={showToast} />}
+                                {activeTab === 'admin' && <AdminPanel settings={settings} fixedSchedules={fixedSchedules} onRefresh={fetchBookings} showToast={showToast} />}
+                            </>
+                        )}
+                    </main>
+
+                    {/* Toast Notification */}
+                    {toast.show && (
+                        <div className={`fixed top-5 right-5 z-50 px-6 py-3 rounded-lg shadow-xl text-white font-medium flex items-center gap-3 transform transition-all duration-300 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+                            <i className={`fa-solid ${toast.type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check'}`}></i>
+                            {toast.message}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- DASHBOARD COMPONENT ---
+        const Dashboard = ({ bookings, fixedSchedules, settings }) => {
+            const todayStr = new Date().toLocaleDateString('en-CA'); 
+            const todayDayOfWeek = new Date().getDay(); 
+            const isWeekend = todayDayOfWeek === 0 || todayDayOfWeek === 6;
+            // Kira jumlah keseluruhan blok masa yang ada hari ini
+            const totalBlocks = isWeekend ? 0 : (todayDayOfWeek === 5 ? 10 : 16);
+            
+            const stats = useMemo(() => {
+                return ROOM_DETAILS.slice(0, 6).map(roomObj => {
+                    const roomName = roomObj.name;
+                    // Ambil jadual HARI INI sahaja
+                    const dailyBookings = bookings.filter(b => b.date === todayStr && b.room === roomName);
+                    const dailyFixed = (fixedSchedules || []).filter(f => parseInt(f.dayOfWeek) === todayDayOfWeek && f.room === roomName);
+                    
+                    // Ekstrak semua blok masa individu yang telah digunakan (pecahkan dengan koma)
+                    let usedBlocks = new Set();
+                    dailyBookings.forEach(b => { if(b.timeSlot) b.timeSlot.split(',').forEach(s => usedBlocks.add(s)) });
+                    dailyFixed.forEach(f => { if(f.timeSlot) f.timeSlot.split(',').forEach(s => usedBlocks.add(s)) });
+                    
+                    const count = usedBlocks.size;
+                    const percentage = totalBlocks > 0 ? Math.round((count / totalBlocks) * 100) : 0;
+                    
+                    return {
+                        name: roomName, 
+                        image: settings[`room_${roomName}`] || roomObj.image,
+                        percentage: percentage, 
+                        count: count, 
+                        total: totalBlocks
+                    };
+                });
+            }, [bookings, fixedSchedules, todayStr, todayDayOfWeek, totalBlocks, settings]);
+
+            const todaysBookings = useMemo(() => {
+                const regular = bookings.filter(b => b.date === todayStr);
+                const fixed = (fixedSchedules || []).filter(f => parseInt(f.dayOfWeek) === todayDayOfWeek).map(f => ({
+                    timeSlot: f.timeSlot, room: f.room, teacherName: 'FIXED SCHEDULE', purpose: f.purpose, isFixed: true
+                }));
+                // Sort by first time slot in string
+                return [...regular, ...fixed].sort((a, b) => a.timeSlot.split(',')[0].localeCompare(b.timeSlot.split(',')[0]));
+            }, [bookings, fixedSchedules, todayStr, todayDayOfWeek]);
+
+            return (
+                <div className="space-y-6 max-w-6xl mx-auto animate-fade-in">
+                    <header className="mb-6">
+                        <h2 className="text-2xl md:text-3xl font-bold">Dashboard</h2>
+                        <p className="opacity-70">Overview of special room bookings.</p>
+                    </header>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {stats.map((stat, index) => (
+                            <div key={index} className="glass-panel p-0 rounded-2xl flex flex-col overflow-hidden text-center transition-transform hover:scale-105 shadow-md border-t border-white/40">
+                                <img src={stat.image} alt={stat.name} className="w-full h-24 md:h-28 object-cover border-b border-black/10 dark:border-white/10" 
+                                    onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/600x400/1e293b/ffffff?text=No+Image" }} />
+                                <div className="p-4 flex flex-col justify-between flex-1 bg-white dark:bg-slate-800">
+                                    <h3 className="font-bold text-sm leading-tight px-1 mb-2">{stat.name}</h3>
+                                    <div>
+                                        <div className="flex justify-between items-end mb-1">
+                                            <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 leading-none">{stat.percentage}%</span>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Used Today</span>
+                                        </div>
+                                        <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                                            <div className={`h-1.5 rounded-full ${stat.percentage > 80 ? 'bg-red-500' : stat.percentage > 40 ? 'bg-amber-500' : 'bg-green-500'}`} style={{ width: `${stat.percentage}%` }}></div>
+                                        </div>
+                                        <div className="text-[9px] text-right mt-1 opacity-50 font-medium">
+                                            {stat.count}/{stat.total} Blocks
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="glass-panel p-5 md:p-6 rounded-3xl mt-8 shadow-lg">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <i className="fa-regular fa-calendar-check text-indigo-500"></i>
+                            Today's Schedule 
+                            <span className="text-sm font-normal opacity-70 ml-auto bg-indigo-100 dark:bg-indigo-900/30 px-3 py-1 rounded-full text-indigo-800 dark:text-indigo-200">
+                                {new Date().toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                            </span>
+                        </h3>
+                        
+                        {todaysBookings.length === 0 ? (
+                            <div className="text-center p-8 opacity-50">
+                                <i className="fa-solid fa-mug-hot text-4xl mb-3 block"></i>
+                                <p>No bookings for today. All rooms are vacant.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs uppercase bg-black/5 dark:bg-white/5 rounded-t-lg">
+                                        <tr>
+                                            <th className="px-4 py-3 rounded-tl-lg">Time</th>
+                                            <th className="px-4 py-3">Room</th>
+                                            <th className="px-4 py-3">Teacher / Status</th>
+                                            <th className="px-4 py-3 rounded-tr-lg">Purpose</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {todaysBookings.map((b, i) => (
+                                            <tr key={i} className={`border-b border-black/5 dark:border-white/5 ${b.isFixed ? 'bg-amber-50/50 dark:bg-amber-900/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}>
+                                                <td className="px-4 py-3 font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{formatTimeRange(b.timeSlot)}</td>
+                                                <td className="px-4 py-3 font-medium">
+                                                    {b.room}
+                                                    {b.isFixed && <span className="ml-2 text-[10px] bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full inline-block mt-1 sm:mt-0">Fixed</span>}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {b.isFixed ? <span className="font-semibold opacity-70"><i className="fa-solid fa-lock text-xs mr-1"></i> {b.teacherName}</span> : b.teacherName}
+                                                </td>
+                                                <td className="px-4 py-3 opacity-80">{b.purpose}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- BOOKING FORM COMPONENT ---
+        const BookingForm = ({ bookings, fixedSchedules, settings, onRefresh, showToast, setTab }) => {
+            const [formData, setFormData] = useState({ teacherName: '', room: '', date: '', startTime: '', endTime: '', purpose: '' });
+            const [submitting, setSubmitting] = useState(false);
+            const [timesArray, setTimesArray] = useState([]);
+            const [availableStartTimes, setAvailableStartTimes] = useState([]);
+            const todayStr = new Date().toLocaleDateString('en-CA');
+
+            useEffect(() => {
+                if (formData.date) {
+                    const day = new Date(formData.date).getDay();
+                    if (day === 0 || day === 6) {
+                        showToast("Warning: Selected date falls on a weekend.", "error");
+                        setTimesArray([]); setAvailableStartTimes([]);
+                    } else if (day === 5) {
+                        setTimesArray(TIMES_FRI); setAvailableStartTimes(TIMES_FRI.slice(0, -1));
+                    } else {
+                        setTimesArray(TIMES_MON_THU); setAvailableStartTimes(TIMES_MON_THU.slice(0, -1));
+                    }
+                    // Reset times on date change
+                    setFormData(prev => ({...prev, startTime: '', endTime: ''}));
+                }
+            }, [formData.date]);
+
+            const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+            // Extract all exact slots that are blocked for the selected date & room
+            const getBlockedSlots = () => {
+                if (!formData.date || !formData.room) return [];
+                const day = new Date(formData.date).getDay();
+                
+                const blocked = new Set();
+                bookings.filter(b => b.date === formData.date && b.room === formData.room)
+                        .forEach(b => { if(b.timeSlot) b.timeSlot.split(',').forEach(s => blocked.add(s)) });
+                (fixedSchedules || []).filter(f => parseInt(f.dayOfWeek) === day && f.room === formData.room)
+                        .forEach(f => { if(f.timeSlot) f.timeSlot.split(',').forEach(s => blocked.add(s)) });
+                    
+                return Array.from(blocked);
+            };
+            const blockedSlots = getBlockedSlots();
+
+            // Calculate valid End Times based on the selected Start Time so users cannot span across booked slots
+            const getValidEndTimes = () => {
+                if (!formData.startTime || !timesArray.length) return [];
+                const startIndex = timesArray.indexOf(formData.startTime);
+                if (startIndex === -1) return [];
+                
+                let validEnds = [];
+                for (let i = startIndex; i < timesArray.length - 1; i++) {
+                    if (blockedSlots.includes(timesArray[i])) break; // Cannot bypass a booked slot
+                    validEnds.push(timesArray[i + 1]);
+                }
+                return validEnds;
+            };
+            const validEndTimes = getValidEndTimes();
+
+            const handleStartTimeChange = (e) => {
+                setFormData({ ...formData, startTime: e.target.value, endTime: '' });
+            };
+
+            const roomObj = ROOM_DETAILS.find(r => r.name === formData.room);
+            const selectedRoomImage = formData.room ? (settings[`room_${formData.room}`] || roomObj?.image) : null;
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const day = new Date(formData.date).getDay();
+                if(day === 0 || day === 6) return showToast("Booking is not allowed on weekends.", "error");
+                
+                const startIndex = timesArray.indexOf(formData.startTime);
+                const endIndex = timesArray.indexOf(formData.endTime);
+                if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) return showToast("Invalid time range.", "error");
+                
+                // Get all blocks within the range
+                const slotsToBook = timesArray.slice(startIndex, endIndex);
+                
+                if (slotsToBook.some(s => blockedSlots.includes(s))) {
+                    return showToast("Conflict Error! Part of selected time is already booked.", "error");
+                }
+
+                setSubmitting(true);
+                const payload = { 
+                    id: new Date().getTime().toString(), 
+                    teacherName: formData.teacherName,
+                    room: formData.room,
+                    date: formData.date,
+                    timeSlot: slotsToBook.join(','), // Saves as "08:10 AM,08:40 AM"
+                    purpose: formData.purpose 
+                };
+
+                try {
+                    if (SCRIPT_URL) {
+                        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', data: payload }) });
+                    } else {
+                        await mockAPI.postData('add', { data: payload });
+                    }
+                    showToast("Booking successfully recorded!", "success");
+                    setFormData({ teacherName: '', room: '', date: '', startTime: '', endTime: '', purpose: '' });
+                    onRefresh();
+                    setTimeout(() => setTab('list'), 1500);
+                } catch (error) {
+                    showToast("Failed to submit booking.", "error");
+                } finally {
+                    setSubmitting(false);
+                }
+            };
+
+            return (
+                <div className="max-w-2xl mx-auto glass-panel p-6 md:p-8 rounded-3xl relative overflow-hidden animate-fade-in shadow-xl">
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                        <i className="fa-solid fa-pen-to-square text-indigo-500"></i> New Booking Form
+                    </h2>
+
+                    {selectedRoomImage && (
+                        <div className="mb-6 rounded-2xl overflow-hidden shadow-lg h-48 md:h-56 relative border border-white/20 transition-all">
+                            <img src={selectedRoomImage} alt={formData.room} className="w-full h-full object-cover" 
+                                onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/600x400/1e293b/ffffff?text=No+Image" }} />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-5">
+                                <span className="text-indigo-300 text-xs font-bold uppercase tracking-wider mb-1">Selected Room:</span>
+                                <h3 className="text-white font-bold text-2xl drop-shadow-md">{formData.room}</h3>
+                            </div>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        <div>
+                            <label className="block text-sm font-semibold mb-2 opacity-80">Teacher's Name</label>
+                            <input type="text" name="teacherName" value={formData.teacherName} onChange={handleChange} required 
+                                className="w-full px-4 py-3 rounded-xl glass-input focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Enter full name" />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label className="block text-sm font-semibold mb-2 opacity-80">Special Room</label>
+                                <select name="room" value={formData.room} onChange={handleChange} required 
+                                    className="w-full px-4 py-3 rounded-xl glass-input focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                    <option value="" disabled>Select Room</option>
+                                    {ROOM_DETAILS.map((r, idx) => <option key={idx} value={r.name}>{r.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold mb-2 opacity-80">Date</label>
+                                <input type="date" name="date" value={formData.date} onChange={handleChange} min={todayStr} required 
+                                    className="w-full px-4 py-3 rounded-xl glass-input focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label className="block text-sm font-semibold mb-2 opacity-80">Start Time</label>
+                                <select name="startTime" value={formData.startTime} onChange={handleStartTimeChange} required disabled={availableStartTimes.length === 0 || !formData.room}
+                                    className="w-full px-4 py-3 rounded-xl glass-input focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                    <option value="" disabled>Select Start</option>
+                                    {availableStartTimes.map((slot, idx) => {
+                                        const isBlocked = blockedSlots.includes(slot);
+                                        return (
+                                            <option key={idx} value={slot} disabled={isBlocked} className={isBlocked ? "bg-red-100 text-red-500 line-through font-medium" : ""}>
+                                                {slot} {isBlocked ? ' - (Booked)' : ''}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold mb-2 opacity-80">End Time</label>
+                                <select name="endTime" value={formData.endTime} onChange={handleChange} required disabled={!formData.startTime || validEndTimes.length === 0}
+                                    className="w-full px-4 py-3 rounded-xl glass-input focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                    <option value="" disabled>Select End</option>
+                                    {validEndTimes.map((slot, idx) => (
+                                        <option key={idx} value={slot}>{slot}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold mb-2 opacity-80">Booking Purpose</label>
+                            <textarea name="purpose" value={formData.purpose} onChange={handleChange} required rows="3"
+                                className="w-full px-4 py-3 rounded-xl glass-input focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Example: Science Class 5A"></textarea>
+                        </div>
+
+                        <button type="submit" disabled={submitting || availableStartTimes.length === 0} 
+                            className="w-full py-4 mt-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/30 transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            {submitting ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-regular fa-paper-plane"></i>}
+                            {submitting ? 'Submitting...' : 'Confirm Booking'}
+                        </button>
+                    </form>
+                </div>
+            );
+        };
+
+        // --- LIST COMPONENT ---
+        const BookingList = ({ bookings, onRefresh, showToast }) => {
+            const [filterDate, setFilterDate] = useState('');
+            const [deleteModal, setDeleteModal] = useState({ show: false, id: null });
+            const [isDeleting, setIsDeleting] = useState(false);
+
+            const filteredBookings = useMemo(() => {
+                let result = [...bookings];
+                if (filterDate) result = result.filter(b => b.date === filterDate);
+                return result.sort((a, b) => new Date(b.date) - new Date(a.date));
+            }, [bookings, filterDate]);
+
+            const handleDelete = async () => {
+                setIsDeleting(true);
+                try {
+                    if (SCRIPT_URL) {
+                        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', id: deleteModal.id }) });
+                    } else {
+                        await mockAPI.postData('delete', { id: deleteModal.id });
+                    }
+                    showToast("Booking deleted.", "success");
+                    onRefresh();
+                } catch (error) {
+                    showToast("Error deleting data.", "error");
+                } finally {
+                    setIsDeleting(false); setDeleteModal({ show: false, id: null });
+                }
+            };
+
+            const downloadPDF = () => {
+                const element = document.getElementById('report-table');
+                const actionCells = element.querySelectorAll('.action-col');
+                actionCells.forEach(cell => cell.style.display = 'none');
+                const opt = { margin: 0.5, filename: `Booking_Report_${filterDate || 'All'}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' } };
+                html2pdf().set(opt).from(element).save().then(() => actionCells.forEach(cell => cell.style.display = ''));
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto space-y-6">
+                    <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-6">
+                        <div><h2 className="text-2xl font-bold mb-1">Booking Reports</h2></div>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-bold uppercase tracking-wider mb-1 opacity-70">Filter Date</label>
+                                <div className="flex">
+                                    <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="px-3 py-2 rounded-l-lg glass-input text-sm" />
+                                    {filterDate && <button onClick={() => setFilterDate('')} className="bg-red-500/20 text-red-600 px-3 py-2 rounded-r-lg hover:bg-red-500/30"><i className="fa-solid fa-xmark"></i></button>}
+                                    {!filterDate && <div className="px-3 py-2 rounded-r-lg bg-black/10 flex items-center justify-center"><i className="fa-solid fa-calendar"></i></div>}
+                                </div>
+                            </div>
+                            <div className="flex items-end">
+                                <button onClick={downloadPDF} disabled={filteredBookings.length === 0} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium shadow-lg shadow-green-600/30 disabled:opacity-50">
+                                    <i className="fa-solid fa-file-pdf mr-2"></i> Print PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="glass-panel rounded-2xl overflow-hidden">
+                        <div id="report-table" className="overflow-x-auto p-4 md:p-6 bg-white/50 dark:bg-slate-900/50">
+                            <div className="hidden pdf-header text-center mb-6">
+                                <h1 className="text-xl font-bold text-black">SMK PEKAN BOOKING SCHEDULE</h1>
+                                <p className="text-sm text-gray-700">Report Date: {filterDate || 'All Records'}</p>
+                            </div>
+                            <style>{`@media print { .pdf-header { display: block !important; } }`}</style>
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs uppercase bg-slate-200/50 dark:bg-slate-800/80 border-b border-black/10 dark:border-white/10">
+                                    <tr>
+                                        <th className="px-4 py-4">Date</th><th className="px-4 py-4">Time Range</th>
+                                        <th className="px-4 py-4">Special Room</th><th className="px-4 py-4">Teacher</th>
+                                        <th className="px-4 py-4">Purpose</th><th className="px-4 py-4 text-center action-col">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredBookings.length > 0 ? filteredBookings.map((b) => (
+                                        <tr key={b.id} className="border-b border-black/5 dark:border-white/5 hover:bg-white/40 dark:hover:bg-slate-800/40 transition-colors">
+                                            <td className="px-4 py-3 whitespace-nowrap">{b.date}</td>
+                                            <td className="px-4 py-3 font-medium text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{formatTimeRange(b.timeSlot)}</td>
+                                            <td className="px-4 py-3 font-semibold">{b.room}</td>
+                                            <td className="px-4 py-3">{b.teacherName}</td>
+                                            <td className="px-4 py-3 opacity-80 text-xs">{b.purpose}</td>
+                                            <td className="px-4 py-3 text-center action-col">
+                                                <button onClick={() => setDeleteModal({ show: true, id: b.id })} className="text-red-500 hover:text-red-700 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 p-2 rounded-lg transition-colors" title="Delete"><i className="fa-solid fa-trash-can"></i></button>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr><td colSpan="6" className="px-4 py-12 text-center opacity-60"><i className="fa-solid fa-folder-open text-4xl mb-3 block"></i>No records found.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {deleteModal.show && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                            <div className="glass-panel p-6 rounded-2xl max-w-sm w-full shadow-2xl border border-red-500/20 text-center">
+                                <i className="fa-solid fa-triangle-exclamation text-4xl text-red-500 mb-4 block"></i>
+                                <h3 className="text-xl font-bold mb-2">Delete Record?</h3>
+                                <p className="text-sm opacity-80 mb-6">This action cannot be undone.</p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setDeleteModal({ show: false, id: null })} disabled={isDeleting} className="flex-1 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 font-medium">Cancel</button>
+                                    <button onClick={handleDelete} disabled={isDeleting} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium flex justify-center items-center gap-2">
+                                        {isDeleting ? <i className="fa-solid fa-spinner animate-spin"></i> : "Yes, Delete"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- ADMIN PANEL COMPONENT ---
+        const AdminPanel = ({ settings, fixedSchedules, onRefresh, showToast }) => {
+            const [adminTab, setAdminTab] = useState('visuals');
+            
+            // Visual Settings State
+            const [localSettings, setLocalSettings] = useState({ ...settings });
+            const [savingSettings, setSavingSettings] = useState(false);
+
+            // Fixed Schedule State
+            const [fixedForm, setFixedForm] = useState({ dayOfWeek: '', room: '', startTime: '', endTime: '', purpose: '' });
+            const [addingFixed, setAddingFixed] = useState(false);
+            const [deletingId, setDeletingId] = useState(null);
+
+            const handleSettingChange = (e) => {
+                setLocalSettings({ ...localSettings, [e.target.name]: e.target.value });
+            };
+
+            const saveSettings = async () => {
+                setSavingSettings(true);
+                try {
+                    if (SCRIPT_URL) {
+                        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'updateSettings', data: localSettings }) });
+                    } else {
+                        await mockAPI.postData('updateSettings', { data: localSettings });
+                    }
+                    showToast("System settings updated successfully!", "success");
+                    onRefresh();
+                } catch (error) {
+                    showToast("Failed to save settings.", "error");
+                } finally {
+                    setSavingSettings(false);
+                }
+            };
+
+            // Fixed Time Arrays Logic
+            const fixedTimesArray = parseInt(fixedForm.dayOfWeek) === 5 ? TIMES_FRI : (fixedForm.dayOfWeek ? TIMES_MON_THU : []);
+            const fixedStartTimes = fixedTimesArray.length ? fixedTimesArray.slice(0, -1) : [];
+            
+            const getFixedBlocked = () => {
+                if(!fixedForm.dayOfWeek || !fixedForm.room) return [];
+                const blocked = new Set();
+                fixedSchedules.filter(f => f.dayOfWeek == fixedForm.dayOfWeek && f.room === fixedForm.room)
+                              .forEach(f => { if(f.timeSlot) f.timeSlot.split(',').forEach(s => blocked.add(s)) });
+                return Array.from(blocked);
+            };
+            const fixedBlocked = getFixedBlocked();
+            
+            const getFixedValidEndTimes = () => {
+                if (!fixedForm.startTime || !fixedTimesArray.length) return [];
+                const startIndex = fixedTimesArray.indexOf(fixedForm.startTime);
+                if (startIndex === -1) return [];
+                let validEnds = [];
+                for (let i = startIndex; i < fixedTimesArray.length - 1; i++) {
+                    if (fixedBlocked.includes(fixedTimesArray[i])) break;
+                    validEnds.push(fixedTimesArray[i + 1]);
+                }
+                return validEnds;
+            };
+            const fixedValidEndTimes = getFixedValidEndTimes();
+
+            const handleFixedSubmit = async (e) => {
+                e.preventDefault();
+                const startIndex = fixedTimesArray.indexOf(fixedForm.startTime);
+                const endIndex = fixedTimesArray.indexOf(fixedForm.endTime);
+                if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) return showToast("Invalid time range.", "error");
+                
+                const slotsToBook = fixedTimesArray.slice(startIndex, endIndex);
+                if (slotsToBook.some(s => fixedBlocked.includes(s))) return showToast("Conflict Error! Part of selected time is already booked.", "error");
+
+                setAddingFixed(true);
+                const payload = { 
+                    id: new Date().getTime().toString(), 
+                    dayOfWeek: fixedForm.dayOfWeek,
+                    room: fixedForm.room,
+                    timeSlot: slotsToBook.join(','),
+                    purpose: fixedForm.purpose
+                };
+                
+                try {
+                    if (SCRIPT_URL) {
+                        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'addFixed', data: payload }) });
+                    } else {
+                        await mockAPI.postData('addFixed', { data: payload });
+                    }
+                    showToast("Fixed schedule added!", "success");
+                    setFixedForm({ dayOfWeek: '', room: '', startTime: '', endTime: '', purpose: '' });
+                    onRefresh();
+                } catch (error) {
+                    showToast("Failed to add fixed schedule.", "error");
+                } finally {
+                    setAddingFixed(false);
+                }
+            };
+
+            const handleDeleteFixed = async (id) => {
+                if(!confirm("Delete this fixed schedule?")) return;
+                setDeletingId(id);
+                try {
+                    if (SCRIPT_URL) {
+                        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deleteFixed', id: id }) });
+                    } else {
+                        await mockAPI.postData('deleteFixed', { id: id });
+                    }
+                    showToast("Fixed schedule deleted.", "success");
+                    onRefresh();
+                } catch (error) {
+                    showToast("Error deleting.", "error");
+                } finally {
+                    setDeletingId(null);
+                }
+            };
+
+            return (
+                <div className="max-w-5xl mx-auto space-y-6">
+                    <header className="mb-6 border-b border-black/10 dark:border-white/10 pb-4">
+                        <h2 className="text-2xl font-bold mb-1"><i className="fa-solid fa-sliders text-indigo-500 mr-2"></i> System Admin Panel</h2>
+                        <p className="opacity-70 text-sm">Configure system visuals and permanent schedules here.</p>
+                        
+                        <div className="flex gap-2 mt-4 bg-black/5 dark:bg-white/5 p-1 rounded-xl w-fit">
+                            <button onClick={() => setAdminTab('visuals')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${adminTab === 'visuals' ? 'bg-white dark:bg-slate-700 shadow' : 'opacity-60 hover:opacity-100'}`}>Visual Settings (Images)</button>
+                            <button onClick={() => setAdminTab('fixed')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${adminTab === 'fixed' ? 'bg-white dark:bg-slate-700 shadow' : 'opacity-60 hover:opacity-100'}`}>Fixed Schedules</button>
+                        </div>
+                    </header>
+
+                    {adminTab === 'visuals' && (
+                        <div className="glass-panel p-6 rounded-2xl animate-fade-in">
+                            <div className="bg-blue-500/10 text-blue-800 dark:text-blue-200 p-4 rounded-xl mb-6 text-sm flex items-start gap-3">
+                                <i className="fa-solid fa-circle-info mt-1 text-blue-500"></i>
+                                <div>
+                                    <strong>How to upload images?</strong><br/>
+                                    This system uses lightweight <b>Image URLs</b>. Upload your image to Google Drive, Imgur, or any photo hosting site, copy the "Direct Image Link" (ending in .jpg/.png), and paste it here.
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                {/* Logo Setting */}
+                                <div className="p-4 bg-black/5 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5">
+                                    <h3 className="font-bold mb-3 flex items-center gap-2"><i className="fa-solid fa-school text-indigo-500"></i> School Logo URL</h3>
+                                    <div className="flex gap-4 items-center">
+                                        <input type="text" name="logo" value={localSettings.logo || ''} onChange={handleSettingChange} className="flex-1 px-4 py-2 rounded-lg glass-input text-sm" placeholder="https://example.com/logo.png" />
+                                        {localSettings.logo && <img src={localSettings.logo} className="w-12 h-12 rounded-full object-cover bg-white" alt="Preview" onError={(e)=>{e.target.style.display='none'}}/>}
+                                    </div>
+                                </div>
+
+                                {/* Rooms Settings */}
+                                <div className="p-4 bg-black/5 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5">
+                                    <h3 className="font-bold mb-3 flex items-center gap-2"><i className="fa-solid fa-door-open text-indigo-500"></i> Room Image URLs</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {ROOM_DETAILS.map((r, idx) => {
+                                            const key = `room_${r.name}`;
+                                            return (
+                                                <div key={idx} className="flex flex-col gap-1">
+                                                    <label className="text-xs font-semibold opacity-70 truncate">{r.name}</label>
+                                                    <input type="text" name={key} value={localSettings[key] || ''} onChange={handleSettingChange} className="px-3 py-2 rounded-lg glass-input text-sm" placeholder="Image URL..." />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+
+                                <button onClick={saveSettings} disabled={savingSettings} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-all flex justify-center items-center gap-2">
+                                    {savingSettings ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-floppy-disk"></i>}
+                                    Save Visual Settings
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {adminTab === 'fixed' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+                            {/* Add Fixed Form */}
+                            <div className="glass-panel p-5 rounded-2xl h-fit border-t border-white/40 shadow-lg">
+                                <h3 className="font-bold mb-4 flex items-center gap-2"><i className="fa-solid fa-plus-circle text-indigo-500"></i> Add Fixed Schedule</h3>
+                                <form onSubmit={handleFixedSubmit} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-semibold mb-1 opacity-80">Day of Week</label>
+                                        <select name="dayOfWeek" value={fixedForm.dayOfWeek} onChange={(e) => { setFixedForm({...fixedForm, dayOfWeek: e.target.value, startTime: '', endTime: ''}) }} required className="w-full px-3 py-2 rounded-lg glass-input text-sm">
+                                            <option value="" disabled>Select Day</option>
+                                            {DAYS_OF_WEEK.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold mb-1 opacity-80">Room</label>
+                                        <select name="room" value={fixedForm.room} onChange={(e) => setFixedForm({...fixedForm, room: e.target.value})} required className="w-full px-3 py-2 rounded-lg glass-input text-sm">
+                                            <option value="" disabled>Select Room</option>
+                                            {ROOM_DETAILS.map((r, idx) => <option key={idx} value={r.name}>{r.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-semibold mb-1 opacity-80">Start Time</label>
+                                            <select name="startTime" value={fixedForm.startTime} onChange={(e) => setFixedForm({...fixedForm, startTime: e.target.value, endTime: ''})} required disabled={!fixedForm.dayOfWeek} className="w-full px-3 py-2 rounded-lg glass-input text-sm">
+                                                <option value="" disabled>Select Start</option>
+                                                {fixedStartTimes.map((slot, idx) => {
+                                                    const isBlocked = fixedBlocked.includes(slot);
+                                                    return <option key={idx} value={slot} disabled={isBlocked} className={isBlocked ? "text-red-400 line-through" : ""}>{slot}</option>
+                                                })}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold mb-1 opacity-80">End Time</label>
+                                            <select name="endTime" value={fixedForm.endTime} onChange={(e) => setFixedForm({...fixedForm, endTime: e.target.value})} required disabled={!fixedForm.startTime || fixedValidEndTimes.length === 0} className="w-full px-3 py-2 rounded-lg glass-input text-sm">
+                                                <option value="" disabled>Select End</option>
+                                                {fixedValidEndTimes.map((slot, idx) => <option key={idx} value={slot}>{slot}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold mb-1 opacity-80">Purpose / Class</label>
+                                        <input type="text" name="purpose" value={fixedForm.purpose} onChange={(e) => setFixedForm({...fixedForm, purpose: e.target.value})} required className="w-full px-3 py-2 rounded-lg glass-input text-sm" placeholder="E.g. Class 5A Science" />
+                                    </div>
+                                    <button type="submit" disabled={addingFixed} className="w-full py-3 mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm shadow transition-all flex items-center justify-center gap-2">
+                                        {addingFixed ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-calendar-check"></i>}
+                                        {addingFixed ? 'Adding...' : 'Add Schedule'}
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* List Fixed */}
+                            <div className="lg:col-span-2 glass-panel p-5 rounded-2xl overflow-hidden flex flex-col border-t border-white/40 shadow-lg">
+                                <h3 className="font-bold mb-4 flex items-center gap-2"><i className="fa-solid fa-list-ul text-indigo-500"></i> Active Fixed Schedules</h3>
+                                <div className="overflow-x-auto flex-1">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs uppercase bg-black/5 dark:bg-white/5">
+                                            <tr>
+                                                <th className="px-3 py-2">Day</th><th className="px-3 py-2">Time Range</th>
+                                                <th className="px-3 py-2">Room</th><th className="px-3 py-2">Purpose</th>
+                                                <th className="px-3 py-2 text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {fixedSchedules.length > 0 ? fixedSchedules.sort((a,b)=>a.dayOfWeek-b.dayOfWeek).map((f) => (
+                                                <tr key={f.id} className="border-b border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                                                    <td className="px-3 py-2 font-medium">{DAYS_OF_WEEK.find(d => d.value == f.dayOfWeek)?.label}</td>
+                                                    <td className="px-3 py-2 text-indigo-600 dark:text-indigo-400 font-medium whitespace-nowrap">{formatTimeRange(f.timeSlot)}</td>
+                                                    <td className="px-3 py-2">{f.room}</td>
+                                                    <td className="px-3 py-2 opacity-80 text-xs">{f.purpose}</td>
+                                                    <td className="px-3 py-2 text-center">
+                                                        <button onClick={() => handleDeleteFixed(f.id)} disabled={deletingId === f.id} className="text-red-500 hover:text-red-700 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/60 p-2 rounded-lg transition-colors">
+                                                            {deletingId === f.id ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-trash-can"></i>}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            )) : (
+                                                <tr><td colSpan="5" className="px-3 py-6 text-center opacity-60">No fixed schedules configured yet.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Render App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
