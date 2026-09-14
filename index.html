@@ -54,10 +54,11 @@
     <div id="root"></div>
 
     <script type="text/babel">
+        // Pengecaman React Hooks (Wajib untuk CDN)
         const { useState, useEffect, useMemo, useRef } = React;
 
         // ==========================================
-        // SILA MASUKKAN URL GOOGLE WEB APP ANDA DI SINI
+        // URL GOOGLE WEB APP (BACKEND)
         // ==========================================
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzL5n4xW5fVp6G__g-N2Yd12f6Y_019vG91N1A/exec";
 
@@ -86,12 +87,11 @@
             { name: "Bengkel RBT 3", image: "https://placehold.co/800x450/1e293b/ffffff?text=Bengkel+RBT+3" }
         ];
 
-        // Fix for Google Sheets Date Offset Issue
+        // Penyelesaian Isu Offset Tarikh Google Sheets
         const getSafeYYYYMMDD = (dateString) => {
             if (!dateString) return "";
             const d = new Date(dateString);
-            if (isNaN(d.getTime())) return dateString; // Return as is if invalid
-            // Extract local components directly to avoid UTC shift
+            if (isNaN(d.getTime())) return dateString; 
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
@@ -104,12 +104,11 @@
         };
 
         const getSlotsForDay = (dayIndex) => {
-            if (dayIndex === 5) return FRIDAY_TIME_SLOTS; // Friday
-            if (dayIndex >= 1 && dayIndex <= 4) return NORMAL_TIME_SLOTS; // Mon-Thu
-            return []; // Weekend
+            if (dayIndex === 5) return FRIDAY_TIME_SLOTS; 
+            if (dayIndex >= 1 && dayIndex <= 4) return NORMAL_TIME_SLOTS; 
+            return []; // Hujung Minggu (Weekend)
         };
 
-        // Helper to generate array of slots between start and end (inclusive)
         const getSlotRange = (startTime, endTime, availableSlots) => {
             if (!startTime || !endTime) return [];
             const startIndex = availableSlots.indexOf(startTime);
@@ -130,10 +129,9 @@
             const [toast, setToast] = useState(null);
             const [rooms, setRooms] = useState(DEFAULT_ROOMS);
             const [schoolLogo, setSchoolLogo] = useState("");
-            const [schoolBanner, setSchoolBanner] = useState("2.png"); // Tetapan Banner Kekal
+            const [schoolBanner, setSchoolBanner] = useState("2.png");
 
             useEffect(() => {
-                // Initialize Dark Mode from LocalStorage
                 const savedMode = localStorage.getItem('smkpekan_darkmode');
                 if (savedMode === 'true') {
                     setDarkMode(true);
@@ -165,13 +163,11 @@
             }, []);
 
             const applySettings = (fetchedSettings) => {
-                // Update Logo & Banner
                 if (fetchedSettings['schoolLogo']) setSchoolLogo(fetchedSettings['schoolLogo']);
                 
-                // Paksa sistem guna 2.png jika ruangan tetapan banner di Admin Panel kosong
+                // Gunakan 2.png jika tiada tetapan dimasukkan oleh admin
                 setSchoolBanner(fetchedSettings['schoolBanner'] || "2.png");
                 
-                // Update Room Images
                 const updatedRooms = DEFAULT_ROOMS.map(room => {
                     const customImage = fetchedSettings[`room_${room.name}`];
                     return { ...room, image: customImage || room.image };
@@ -180,7 +176,6 @@
             };
 
             const fetchBookings = async () => {
-                // 1. Instant Cache Load
                 const cachedBookings = localStorage.getItem('smkpekan_cache_bookings');
                 const cachedFixed = localStorage.getItem('smkpekan_cache_fixed');
                 const cachedSettings = localStorage.getItem('smkpekan_cache_settings');
@@ -191,7 +186,7 @@
                     const parsedSettings = JSON.parse(cachedSettings || '{}');
                     setSettings(parsedSettings);
                     applySettings(parsedSettings);
-                    setLoading(false);
+                    setLoading(false); 
                 } else {
                     setLoading(true);
                 }
@@ -199,10 +194,7 @@
                 try {
                     let responseData = null;
                     if (SCRIPT_URL && SCRIPT_URL.includes("script.google")) {
-                        // Cache buster to force fresh data
                         const cacheBusterUrl = SCRIPT_URL + (SCRIPT_URL.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
-                        
-                        // Add a timeout of 8 seconds so it doesn't hang forever
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 8000);
                         
@@ -215,31 +207,25 @@
                         throw new Error("Invalid or empty SCRIPT_URL");
                     }
                     
-                    // Normalize dates 
                     const normalizedBookings = (responseData.bookings || []).map(b => ({
                         ...b,
                         date: getSafeYYYYMMDD(b.date)
                     }));
                     
-                    // 2. Background Update
                     setBookings(normalizedBookings);
                     setFixedSchedules(responseData.fixedSchedules || []);
                     setSettings(responseData.settings || {});
                     applySettings(responseData.settings || {});
 
-                    // 3. Save Fresh Data
                     localStorage.setItem('smkpekan_cache_bookings', JSON.stringify(normalizedBookings));
                     localStorage.setItem('smkpekan_cache_fixed', JSON.stringify(responseData.fixedSchedules || []));
                     localStorage.setItem('smkpekan_cache_settings', JSON.stringify(responseData.settings || {}));
                     
                 } catch (error) {
-                    console.warn("Peringatan Sistem: Beroperasi dalam Mock Mode. Sebab:", error.message);
-                    
-                    // Jika tiada cache langsung, sediakan persekitaran offline yang bersih
+                    console.warn("System Notice: Operating in Mock Mode. Reason:", error.message);
                     if (!cachedBookings) {
-                        setBookings([]);
-                        setFixedSchedules([]);
-                        showToast('Offline Mode: Sistem beroperasi secara lokal.', 'success');
+                        setBookings([]); setFixedSchedules([]);
+                        showToast('Offline Mode: Using local storage.', 'success');
                     }
                 } finally {
                     setLoading(false);
@@ -274,24 +260,24 @@
                 const todayDayOfWeek = getDayOfWeek(todayStr);
                 const availableSlotsToday = getSlotsForDay(todayDayOfWeek);
                 
-                // Get today's bookings
                 const todayBookings = bookings.filter(b => b.date === todayStr);
-                
-                // Get today's fixed schedules
                 const todayFixed = fixedSchedules.filter(f => f.dayOfWeek == todayDayOfWeek);
 
-                // Calculate Usage Percentage
                 const calculateRoomUsage = (roomName) => {
                     if (availableSlotsToday.length === 0) return 0;
                     
                     let usedSlots = new Set();
                     
-                    // Count fixed schedules
                     todayFixed.filter(f => f.room === roomName).forEach(f => {
-                        usedSlots.add(f.timeSlot);
+                        const times = f.timeSlot.split(" - ");
+                        if (times.length === 2) {
+                            const range = getSlotRange(times[0], times[1], availableSlotsToday);
+                            range.forEach(slot => usedSlots.add(slot));
+                        } else {
+                            usedSlots.add(f.timeSlot);
+                        }
                     });
 
-                    // Count ad-hoc bookings (handle Start - End time format)
                     todayBookings.filter(b => b.room === roomName).forEach(b => {
                         const times = b.timeSlot.split(" - ");
                         if (times.length === 2) {
@@ -321,7 +307,7 @@
                                             
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-sm font-semibold">
-                                                    <span>Today's Usage</span>
+                                                    <span>Today</span>
                                                     <span>{usagePct}%</span>
                                                 </div>
                                                 <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
@@ -355,17 +341,15 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {/* Combine Fixed and Normal Bookings for today */}
                                             {[...todayFixed.map(f => ({...f, isFixed: true})), ...todayBookings.map(b => ({...b, isFixed: false}))]
                                                 .sort((a, b) => {
-                                                    // Sort by time (using first time if it's a range)
                                                     const timeA = a.timeSlot.split(" - ")[0];
                                                     const timeB = b.timeSlot.split(" - ")[0];
                                                     return availableSlotsToday.indexOf(timeA) - availableSlotsToday.indexOf(timeB);
                                                 })
                                                 .map((item, idx) => (
                                                 <tr key={idx} className={`border-b last:border-0 ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
-                                                    <td className="px-4 py-3 font-medium">{item.timeSlot}</td>
+                                                    <td className="px-4 py-3 font-medium whitespace-nowrap">{item.timeSlot}</td>
                                                     <td className="px-4 py-3">{item.room}</td>
                                                     <td className="px-4 py-3">
                                                         {item.isFixed ? <span className="text-slate-400 italic">Scheduled Class</span> : item.teacherName}
@@ -373,8 +357,8 @@
                                                     <td className="px-4 py-3">{item.purpose}</td>
                                                     <td className="px-4 py-3">
                                                         {item.isFixed 
-                                                            ? <span className="px-2 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-xs rounded-lg font-semibold"><i className="fas fa-lock mr-1"></i>Fixed</span>
-                                                            : <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs rounded-lg font-semibold">Booking</span>
+                                                            ? <span className="px-2 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-xs rounded-lg font-semibold whitespace-nowrap"><i className="fas fa-lock mr-1"></i>Fixed</span>
+                                                            : <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs rounded-lg font-semibold whitespace-nowrap">Booking</span>
                                                         }
                                                     </td>
                                                 </tr>
@@ -405,27 +389,30 @@
                 const [formEndTime, setFormEndTime] = useState("");
                 const [isSubmitting, setIsSubmitting] = useState(false);
 
-                // Derived state
                 const dayOfWeek = formDate ? getDayOfWeek(formDate) : null;
                 const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                 const availableSlots = formDate ? getSlotsForDay(dayOfWeek) : [];
                 
                 const selectedRoomObj = formRoom ? rooms.find(r => r.name === formRoom) : null;
 
-                // Function to check if a specific time slot is booked
                 const isSlotBooked = (slotToCheck) => {
                     if (!formDate || !formRoom) return false;
                     
-                    // 1. Check Fixed Schedules
-                    const isFixed = fixedSchedules.some(f => f.dayOfWeek === dayOfWeek && f.room === formRoom && f.timeSlot === slotToCheck);
+                    const isFixed = fixedSchedules.some(f => {
+                        if (f.dayOfWeek !== dayOfWeek || f.room !== formRoom) return false;
+                        const times = f.timeSlot.split(" - ");
+                        if (times.length === 2) {
+                            const range = getSlotRange(times[0], times[1], availableSlots);
+                            return range.includes(slotToCheck);
+                        }
+                        return f.timeSlot === slotToCheck;
+                    });
                     if (isFixed) return true;
 
-                    // 2. Check Ad-hoc Bookings
                     return bookings.some(b => {
                         if (b.date !== formDate || b.room !== formRoom) return false;
                         const times = b.timeSlot.split(" - ");
                         if (times.length === 2) {
-                            // It's a range, check if slotToCheck falls within it
                             const range = getSlotRange(times[0], times[1], availableSlots);
                             return range.includes(slotToCheck);
                         }
@@ -448,12 +435,11 @@
                         showToast("End time must be after Start time.", "error"); return;
                     }
 
-                    // Final Check for collisions in the selected range
                     const requestedRange = getSlotRange(formStartTime, formEndTime, availableSlots);
                     const hasCollision = requestedRange.some(slot => isSlotBooked(slot));
                     
                     if (hasCollision) {
-                        showToast("Collision detected! One or more selected slots are already booked.", "error"); return;
+                        showToast("Collision detected! Selected slot is unavailable.", "error"); return;
                     }
 
                     setIsSubmitting(true);
@@ -480,16 +466,15 @@
                             showToast("Booking successful!");
                             e.target.reset();
                             setFormDate(""); setFormRoom(""); setFormStartTime(""); setFormEndTime("");
-                            fetchBookings(); // Refresh data
+                            fetchBookings();
                         } else {
                             throw new Error(result.message);
                         }
                     } catch (error) {
-                        // Mock fallback
                         const updatedBookings = [...bookings, newBooking];
                         setBookings(updatedBookings);
                         localStorage.setItem('smkpekan_cache_bookings', JSON.stringify(updatedBookings));
-                        showToast("Saved locally (Mock Mode). Add SCRIPT_URL for cloud sync.", "success");
+                        showToast("Saved locally (Mock Mode).", "success");
                         e.target.reset();
                         setFormDate(""); setFormRoom(""); setFormStartTime(""); setFormEndTime("");
                     } finally {
@@ -503,8 +488,7 @@
                     <div className="animate-fade-in max-w-4xl mx-auto">
                         <div className={`rounded-2xl shadow-xl overflow-hidden ${darkMode ? 'glass-dark' : 'glass-light'}`}>
                             
-                            {/* Header / Room Image Preview */}
-                            <div className="h-48 w-full bg-slate-200 dark:bg-slate-800 relative border-b border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                            <div className="h-48 w-full bg-slate-200 dark:bg-slate-800 relative border-b border-slate-200 dark:border-slate-700 flex items-center justify-center p-2">
                                 {selectedRoomObj ? (
                                     <img 
                                         src={selectedRoomObj.image} 
@@ -554,12 +538,12 @@
                                             </select>
                                         </div>
 
+                                        {/* START TIME & END TIME (Clearly Placed Here) */}
                                         <div>
                                             <label className="block text-sm font-semibold mb-2">Start Time</label>
                                             <select required disabled={!formDate || isWeekend || !formRoom}
                                                 value={formStartTime} onChange={(e) => {
                                                     setFormStartTime(e.target.value);
-                                                    // Auto-adjust end time if it's before start time
                                                     if (formEndTime && availableSlots.indexOf(e.target.value) > availableSlots.indexOf(formEndTime)) {
                                                         setFormEndTime("");
                                                     }
@@ -587,7 +571,6 @@
                                                     const startIndex = availableSlots.indexOf(formStartTime);
                                                     const isBeforeStart = i < startIndex;
                                                     
-                                                    // Also, we cannot select an end time if there's a booked slot BETWEEN start and this end time
                                                     let isBlockedByExisting = false;
                                                     if (startIndex !== -1 && i >= startIndex) {
                                                         const range = availableSlots.slice(startIndex, i + 1);
@@ -633,7 +616,6 @@
                 
                 const filteredBookings = filterDate ? bookings.filter(b => b.date === filterDate) : bookings;
                 
-                // Sort by date (descending) then time
                 filteredBookings.sort((a, b) => {
                     if (a.date !== b.date) return new Date(b.date) - new Date(a.date);
                     return a.timeSlot.localeCompare(b.timeSlot);
@@ -696,8 +678,8 @@
 
                         <div id="print-area" className={`rounded-2xl p-6 shadow-lg overflow-x-auto ${darkMode ? 'glass-dark' : 'glass-light'}`}>
                             <div className="mb-6 text-center print-only hidden">
-                                <h2 className="text-2xl font-bold">Laporan Tempahan Bilik Khas SMK Pekan</h2>
-                                <p>Tarikh Rekod: {filterDate ? filterDate : 'Keseluruhan'}</p>
+                                <h2 className="text-2xl font-bold">SMK Pekan Booking Report</h2>
+                                <p>Date: {filterDate ? filterDate : 'All Records'}</p>
                             </div>
                             
                             <table className="w-full text-left text-sm">
@@ -749,7 +731,6 @@
                 const [activeSubTab, setActiveSubTab] = useState('visuals');
                 const [isSaving, setIsSaving] = useState(false);
                 
-                // Visual Settings State
                 const [localSettings, setLocalSettings] = useState({ ...settings });
                 
                 const handleSettingChange = (key, value) => {
@@ -779,22 +760,33 @@
                     }
                 };
 
-                // Fixed Schedule Form State
                 const [fDay, setFDay] = useState("");
                 const [fRoom, setFRoom] = useState("");
-                const [fTime, setFTime] = useState("");
+                const [fStartTime, setFStartTime] = useState("");
+                const [fEndTime, setFEndTime] = useState("");
                 const [fPurpose, setFPurpose] = useState("");
 
                 const fAvailableSlots = fDay ? getSlotsForDay(parseInt(fDay)) : [];
 
                 const addFixedSchedule = async (e) => {
                     e.preventDefault();
+                    
+                    if (!fStartTime || !fEndTime) {
+                        showToast("Please select Start and End time.", "error"); return;
+                    }
+                    
+                    const startIndex = fAvailableSlots.indexOf(fStartTime);
+                    const endIndex = fAvailableSlots.indexOf(fEndTime);
+                    if (startIndex > endIndex) {
+                        showToast("End time must be after Start time.", "error"); return;
+                    }
+
                     setIsSaving(true);
                     
                     const newFixed = {
                         id: new Date().getTime().toString(),
                         dayOfWeek: fDay,
-                        timeSlot: fTime,
+                        timeSlot: `${fStartTime} - ${fEndTime}`,
                         room: fRoom,
                         purpose: fPurpose
                     };
@@ -809,14 +801,14 @@
                         if(result.status === 'success'){
                             showToast("Fixed schedule added!");
                             fetchBookings();
-                            setFDay(""); setFRoom(""); setFTime(""); setFPurpose("");
+                            setFDay(""); setFRoom(""); setFStartTime(""); setFEndTime(""); setFPurpose("");
                         }
                     } catch (error) {
                         const updated = [...fixedSchedules, newFixed];
                         setFixedSchedules(updated);
                         localStorage.setItem('smkpekan_cache_fixed', JSON.stringify(updated));
                         showToast("Added locally (Mock Mode)", "success");
-                        setFDay(""); setFRoom(""); setFTime(""); setFPurpose("");
+                        setFDay(""); setFRoom(""); setFStartTime(""); setFEndTime(""); setFPurpose("");
                     } finally {
                         setIsSaving(false);
                     }
@@ -855,11 +847,10 @@
                                 </button>
                                 <button onClick={() => setActiveSubTab('fixed')} 
                                     className={`px-4 py-2 font-medium border-b-2 transition ${activeSubTab === 'fixed' ? 'border-blue-500 text-blue-500' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
-                                    Fixed Schedules (Jadual Tetap)
+                                    Fixed Schedules
                                 </button>
                             </div>
 
-                            {/* SubTab: Visuals */}
                             {activeSubTab === 'visuals' && (
                                 <div className="space-y-6">
                                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-lg text-sm">
@@ -873,9 +864,9 @@
                                                 className={`w-full p-3 rounded-xl border outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`} placeholder="https://..." />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold mb-2">School Banner URL</label>
+                                            <label className="block text-sm font-semibold mb-2">School Banner URL (e.g. 2.png)</label>
                                             <input type="text" value={localSettings['schoolBanner'] || ''} onChange={(e) => handleSettingChange('schoolBanner', e.target.value)}
-                                                className={`w-full p-3 rounded-xl border outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`} placeholder="e.g. 2.jpg or https://..." />
+                                                className={`w-full p-3 rounded-xl border outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`} placeholder="e.g. 2.png or https://..." />
                                         </div>
                                     </div>
 
@@ -897,13 +888,12 @@
                                 </div>
                             )}
 
-                            {/* SubTab: Fixed Schedules */}
                             {activeSubTab === 'fixed' && (
                                 <div className="space-y-8">
-                                    <form onSubmit={addFixedSchedule} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-4 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                                    <form onSubmit={addFixedSchedule} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 p-4 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                                         <div>
                                             <label className="block text-xs font-semibold mb-1">Day</label>
-                                            <select required value={fDay} onChange={(e) => {setFDay(e.target.value); setFTime("");}}
+                                            <select required value={fDay} onChange={(e) => {setFDay(e.target.value); setFStartTime(""); setFEndTime("");}}
                                                 className={`w-full p-2 rounded-lg border outline-none text-sm ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}>
                                                 <option value="">Select Day</option>
                                                 <option value="1">Monday</option>
@@ -922,11 +912,27 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-semibold mb-1">Time Slot (Exact)</label>
-                                            <select required value={fTime} onChange={(e) => setFTime(e.target.value)} disabled={!fDay}
+                                            <label className="block text-xs font-semibold mb-1">Start Time</label>
+                                            <select required value={fStartTime} onChange={(e) => {
+                                                    setFStartTime(e.target.value);
+                                                    if (fEndTime && fAvailableSlots.indexOf(e.target.value) > fAvailableSlots.indexOf(fEndTime)) {
+                                                        setFEndTime("");
+                                                    }
+                                                }} disabled={!fDay}
                                                 className={`w-full p-2 rounded-lg border outline-none text-sm ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}>
-                                                <option value="">Select Time</option>
+                                                <option value="">Start</option>
                                                 {fAvailableSlots.map((slot, i) => <option key={i} value={slot}>{slot}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold mb-1">End Time</label>
+                                            <select required value={fEndTime} onChange={(e) => setFEndTime(e.target.value)} disabled={!fStartTime}
+                                                className={`w-full p-2 rounded-lg border outline-none text-sm ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}>
+                                                <option value="">End</option>
+                                                {fAvailableSlots.map((slot, i) => {
+                                                    const startIndex = fAvailableSlots.indexOf(fStartTime);
+                                                    return <option key={i} value={slot} disabled={i < startIndex}>{slot}</option>
+                                                })}
                                             </select>
                                         </div>
                                         <div>
@@ -981,7 +987,6 @@
             return (
                 <div className="min-h-screen flex flex-col md:flex-row">
                     
-                    {/* Toast Notification */}
                     {toast && (
                         <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-xl font-semibold transform transition-all flex items-center
                             ${toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}>
@@ -1029,8 +1034,8 @@
                     {/* Main Content Area */}
                     <div className="flex-1 flex flex-col h-screen relative overflow-hidden">
                         
-                        {/* --- FIXED BANNER AREA --- */}
-                        <div className={`w-full flex-shrink-0 border-b ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'} flex items-center justify-center relative z-10 shadow-sm overflow-hidden`}>
+                        {/* --- FIXED BANNER AREA (Fit to Frame) --- */}
+                        <div className={`w-full flex-shrink-0 border-b ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'} flex items-center justify-center relative z-10 shadow-sm overflow-hidden p-2`}>
                             <img 
                                 src={schoolBanner} 
                                 alt="Banner SMK Pekan" 
