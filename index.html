@@ -34,6 +34,7 @@
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
         
         .bar-animate { transition: width 1s ease-in-out; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
@@ -42,7 +43,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // PENTING: URL ini wajib betul untuk memastikan data disimpan di Google Sheets.
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzGHdEMd1ItlG6BWMqDv9B8INJVHU622ii0Vq_tU-bCV2lEgzZuRyKLXz9Lh7HLg5JKtg/exec"; 
         
         const DEFAULT_ROOMS = [
@@ -52,7 +52,6 @@
             { name: "Bilik SAL" }, { name: "Bengkel RBT 1" }, { name: "Bengkel RBT 2" }, { name: "Bengkel RBT 3" }
         ];
 
-        // Masa telah dipanjangkan sehingga 5.00 PM (17:10 bagi slot terakhir normal, 17:00 bagi Jumaat)
         const TIME_SLOTS_NORMAL = ["07:40 AM", "08:10 AM", "08:40 AM", "09:10 AM", "09:40 AM", "10:10 AM", "10:40 AM", "11:10 AM", "11:40 AM", "12:10 PM", "12:40 PM", "01:10 PM", "01:40 PM", "02:10 PM", "02:40 PM", "03:10 PM", "03:40 PM", "04:10 PM", "04:40 PM", "05:10 PM"];
         const TIME_SLOTS_FRIDAY = ["07:30 AM", "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM"];
         const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -63,23 +62,27 @@
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         };
 
-        const getDayOfWeek = (dateStr) => !dateStr ? -1 : new Date(dateStr).getDay(); 
+        const getDayOfWeek = (dateStr) => {
+            if (!dateStr) return -1;
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return -1;
+            // Gunakan tahun, bulan, hari secara lokal untuk elak anjakan timezone
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+            return d.getDay(); 
+        };
         
-        // Hujung minggu kini boleh ditempah dan menggunakan masa NORMAL.
         const getSlotsForDay = (dayIndex) => dayIndex === 5 ? TIME_SLOTS_FRIDAY : TIME_SLOTS_NORMAL;
 
         const getSlotRange = (start, end, availableSlots) => {
-            const startIndex = availableSlots.indexOf(start);
-            const endIndex = availableSlots.indexOf(end);
-            if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) return [start];
+            const startIndex = availableSlots.indexOf(start.trim());
+            const endIndex = availableSlots.indexOf(end.trim());
+            if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) return [start.trim()];
             return availableSlots.slice(startIndex, endIndex + 1);
         };
 
         const DashboardView = ({ bookings, fixedSchedules, darkMode }) => {
-            const [viewMode, setViewMode] = useState('daily'); // 'daily' atau 'room_monthly'
+            const [viewMode, setViewMode] = useState('daily'); 
             const [selectedDate, setSelectedDate] = useState(getSafeYYYYMMDD(new Date()));
-            
-            // State untuk paparan Bulanan Bilik Khas
             const [selectedRoom, setSelectedRoom] = useState(DEFAULT_ROOMS[0].name);
             const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
 
@@ -88,21 +91,20 @@
             const targetBookings = bookings.filter(b => b.date === selectedDate);
             const targetFixed = fixedSchedules.filter(f => parseInt(f.dayOfWeek) === targetDayOfWeek);
 
-            // Kira data graf bar harian
             const calculateDailyUsage = () => {
                 if (availableSlotsToday.length === 0) return [];
                 return DEFAULT_ROOMS.map(room => {
                     let usedSlotsCount = 0;
                     targetFixed.forEach(f => {
                         if (f.room === room.name) {
-                            const times = f.timeSlot.split(" - ");
-                            usedSlotsCount += (times.length === 2 ? getSlotRange(times[0], times[1], availableSlotsToday) : [f.timeSlot]).length;
+                            const times = f.timeSlot.split("-").map(t => t.trim());
+                            usedSlotsCount += (times.length === 2 ? getSlotRange(times[0], times[1], availableSlotsToday) : [f.timeSlot.trim()]).length;
                         }
                     });
                     targetBookings.forEach(b => {
                         if (b.room === room.name) {
-                            const times = b.timeSlot.split(" - ");
-                            usedSlotsCount += (times.length === 2 ? getSlotRange(times[0], times[1], availableSlotsToday) : [b.timeSlot]).length;
+                            const times = b.timeSlot.split("-").map(t => t.trim());
+                            usedSlotsCount += (times.length === 2 ? getSlotRange(times[0], times[1], availableSlotsToday) : [b.timeSlot.trim()]).length;
                         }
                     });
                     return { name: room.name, pct: Math.min((usedSlotsCount / availableSlotsToday.length) * 100, 100) };
@@ -110,7 +112,6 @@
             };
             const dailyUsageData = calculateDailyUsage();
 
-            // Setup kalendar bulanan bilik khas
             const mYear = currentMonthDate.getFullYear();
             const mMonth = currentMonthDate.getMonth();
             const daysInMonth = new Date(mYear, mMonth + 1, 0).getDate();
@@ -124,7 +125,7 @@
                         <h2 className="text-2xl font-bold">Dashboard</h2>
                         <div className="flex bg-slate-200 dark:bg-slate-700 rounded-lg p-1 shadow-inner">
                             <button onClick={() => setViewMode('daily')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'daily' ? 'bg-white dark:bg-slate-800 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>Daily Graph</button>
-                            <button onClick={() => setViewMode('room_monthly')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'room_monthly' ? 'bg-white dark:bg-slate-800 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>Monthly Room View</button>
+                            <button onClick={() => setViewMode('room_monthly')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'room_monthly' ? 'bg-white dark:bg-slate-800 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>Monthly Calendar</button>
                         </div>
                     </div>
 
@@ -154,15 +155,15 @@
                         </div>
                     ) : (
                         <div className={`p-6 rounded-2xl shadow-lg ${darkMode ? 'glass-dark' : 'glass-light'}`}>
-                            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                                <select value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)} className={`w-full md:w-72 p-3 font-bold rounded-lg border shadow-sm outline-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300'}`}>
+                            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b pb-4 dark:border-slate-700">
+                                <select value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)} className={`w-full md:w-72 p-3 font-bold rounded-lg border shadow-sm outline-none cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300'}`}>
                                     {DEFAULT_ROOMS.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
                                 </select>
                                 
                                 <div className="flex items-center gap-4 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700">
-                                    <button onClick={() => setCurrentMonthDate(new Date(mYear, mMonth - 1, 1))} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"><i className="fas fa-chevron-left text-sm"></i></button>
+                                    <button onClick={() => setCurrentMonthDate(new Date(mYear, mMonth - 1, 1))} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-slate-200 transition-colors"><i className="fas fa-chevron-left text-sm"></i></button>
                                     <h3 className="text-lg font-bold w-40 text-center tracking-wide">{MONTHS[mMonth]} {mYear}</h3>
-                                    <button onClick={() => setCurrentMonthDate(new Date(mYear, mMonth + 1, 1))} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"><i className="fas fa-chevron-right text-sm"></i></button>
+                                    <button onClick={() => setCurrentMonthDate(new Date(mYear, mMonth + 1, 1))} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-slate-200 transition-colors"><i className="fas fa-chevron-right text-sm"></i></button>
                                 </div>
                             </div>
                             
@@ -176,7 +177,6 @@
                                     const dStr = getSafeYYYYMMDD(new Date(mYear, mMonth, day));
                                     const dDayOfWeek = getDayOfWeek(dStr);
                                     
-                                    // Filter Tempahan Untuk Hari dan Bilik Terpilih Sahaja
                                     const dayBookings = bookings.filter(bk => bk.date === dStr && bk.room === selectedRoom);
                                     const fixedBookings = fixedSchedules.filter(f => parseInt(f.dayOfWeek) === dDayOfWeek && f.room === selectedRoom);
                                     
@@ -184,19 +184,20 @@
                                     const isToday = dStr === getSafeYYYYMMDD(new Date());
                                     
                                     return (
-                                        <div key={day} className={`border rounded-xl p-1.5 md:p-2 min-h-[90px] md:min-h-[120px] flex flex-col transition-all hover:shadow-md ${isToday ? 'ring-2 ring-blue-500' : ''} ${darkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200 bg-white'}`}>
+                                        <div key={day} className={`border rounded-xl p-1.5 md:p-2 min-h-[110px] md:min-h-[140px] flex flex-col transition-all hover:shadow-md ${isToday ? 'ring-2 ring-blue-500' : ''} ${darkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200 bg-white'}`}>
                                             <span className={`text-xs md:text-sm font-bold mb-2 flex justify-center items-center w-6 h-6 rounded-full ${hasData ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : ''}`}>{day}</span>
                                             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
                                                 {fixedBookings.map((f, i) => (
                                                     <div key={`f-${i}`} className="text-[10px] md:text-xs leading-tight bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-200 rounded p-1.5 shadow-sm border border-amber-200 dark:border-amber-700/50">
                                                         <div className="font-semibold mb-0.5"><i className="fas fa-lock text-[8px] mr-1"></i>{f.timeSlot}</div>
-                                                        <div className="truncate opacity-90">{f.purpose}</div>
+                                                        <div className="truncate font-bold opacity-90">{f.purpose}</div>
                                                     </div>
                                                 ))}
                                                 {dayBookings.map((b, i) => (
                                                     <div key={`b-${i}`} className="text-[10px] md:text-xs leading-tight bg-green-100 text-green-800 dark:bg-green-900/70 dark:text-green-200 rounded p-1.5 shadow-sm border border-green-200 dark:border-green-700/50">
-                                                        <div className="font-semibold mb-0.5"><i className="fas fa-user text-[8px] mr-1"></i>{b.timeSlot}</div>
-                                                        <div className="truncate opacity-90">{b.teacherName}</div>
+                                                        <div className="font-bold mb-0.5"><i className="fas fa-clock text-[8px] mr-1"></i>{b.timeSlot}</div>
+                                                        <div className="truncate font-semibold"><i className="fas fa-user text-[8px] mr-1 text-slate-500"></i>{b.teacherName}</div>
+                                                        <div className="truncate opacity-80 italic mt-0.5">{b.purpose}</div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -222,21 +223,23 @@
             const dayOfWeek = getDayOfWeek(formDate);
             const availableSlots = getSlotsForDay(dayOfWeek);
             
-            // Logik Anti-Collision
-            const isSlotBooked = (slotToCheck) => {
-                if (!formDate || !formRoom) return false;
+            // Logik Anti-Collision (Kini Lebih Kebal)
+            const isSlotBooked = (slotToCheck, checkDate, checkRoom) => {
+                if (!checkDate || !checkRoom) return false;
+                const dWeek = getDayOfWeek(checkDate);
+                const slotsForCheckDay = getSlotsForDay(dWeek);
                 
                 const isFixed = fixedSchedules.some(f => {
-                    if (parseInt(f.dayOfWeek) !== dayOfWeek || f.room !== formRoom) return false;
-                    const times = f.timeSlot.split(" - ");
-                    return (times.length === 2) ? getSlotRange(times[0], times[1], availableSlots).includes(slotToCheck) : f.timeSlot === slotToCheck;
+                    if (parseInt(f.dayOfWeek) !== dWeek || f.room !== checkRoom) return false;
+                    const times = f.timeSlot.split("-").map(s => s.trim());
+                    return (times.length === 2) ? getSlotRange(times[0], times[1], slotsForCheckDay).includes(slotToCheck) : f.timeSlot.trim() === slotToCheck;
                 });
                 if(isFixed) return true;
 
                 return bookings.some(b => {
-                    if (b.date !== formDate || b.room !== formRoom) return false;
-                    const times = b.timeSlot.split(" - ");
-                    return (times.length === 2) ? getSlotRange(times[0], times[1], availableSlots).includes(slotToCheck) : b.timeSlot === slotToCheck;
+                    if (b.date !== checkDate || b.room !== checkRoom) return false;
+                    const times = b.timeSlot.split("-").map(s => s.trim());
+                    return (times.length === 2) ? getSlotRange(times[0], times[1], slotsForCheckDay).includes(slotToCheck) : b.timeSlot.trim() === slotToCheck;
                 });
             };
 
@@ -246,11 +249,12 @@
                     showNotification("Please fill in all fields.", "error"); return;
                 }
 
+                // Semakan sebelum Submit
                 const rangeToBook = getSlotRange(formStart, formEnd, availableSlots);
-                const collision = rangeToBook.some(s => isSlotBooked(s));
+                const collision = rangeToBook.some(s => isSlotBooked(s, formDate, formRoom));
                 
                 if (collision) {
-                    showNotification("Collision detected! Time slot already booked.", "error"); return;
+                    showNotification("Collision detected! Time slot already taken.", "error"); return;
                 }
                 
                 handleAddBooking({
@@ -301,31 +305,29 @@
                                 </div>
                             </div>
                             
-                            {formDate && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 dark:bg-slate-800/80 p-5 rounded-xl border border-blue-100 dark:border-slate-700 mt-4">
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-2">Start Time</label>
-                                        <select value={formStart} onChange={e => setFormStart(e.target.value)} required className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer ${darkMode ? 'bg-slate-900/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`}>
-                                            <option value="" disabled>Select Start</option>
-                                            {availableSlots.map((slot, i) => {
-                                                const isBooked = isSlotBooked(slot);
-                                                return <option key={i} value={slot} disabled={isBooked} className={isBooked ? "text-slate-400 line-through bg-slate-100 dark:bg-slate-800" : "font-medium"}>{slot} {isBooked ? "(Booked)" : ""}</option>
-                                            })}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-2">End Time</label>
-                                        <select value={formEnd} onChange={e => setFormEnd(e.target.value)} required className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer ${darkMode ? 'bg-slate-900/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`}>
-                                            <option value="" disabled>Select End</option>
-                                            {availableSlots.map((slot, i) => {
-                                                if(formStart && availableSlots.indexOf(slot) < availableSlots.indexOf(formStart)) return <option key={i} disabled className="hidden">{slot}</option>;
-                                                const isBooked = isSlotBooked(slot);
-                                                return <option key={i} value={slot} disabled={isBooked} className={isBooked ? "text-slate-400 line-through bg-slate-100 dark:bg-slate-800" : "font-medium"}>{slot} {isBooked ? "(Booked)" : ""}</option>
-                                            })}
-                                        </select>
-                                    </div>
+                            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-xl border mt-4 transition-all duration-300 ${!formDate || !formRoom ? 'bg-slate-100 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700 opacity-70 grayscale-[30%]' : 'bg-blue-50 border-blue-100 dark:bg-slate-800/80 dark:border-slate-700'}`}>
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2">Start Time {!formDate || !formRoom ? <span className="text-red-500 text-xs ml-2 font-normal">(Sila pilih Tarikh & Bilik)</span> : ""}</label>
+                                    <select value={formStart} onChange={e => setFormStart(e.target.value)} required disabled={!formDate || !formRoom} className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none ${!formDate || !formRoom ? 'cursor-not-allowed' : 'cursor-pointer'} ${darkMode ? 'bg-slate-900/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`}>
+                                        <option value="" disabled>Select Start</option>
+                                        {availableSlots.map((slot, i) => {
+                                            const isBooked = isSlotBooked(slot, formDate, formRoom);
+                                            return <option key={i} value={slot} disabled={isBooked} className={isBooked ? "text-slate-400 line-through bg-slate-100 dark:bg-slate-800" : "font-medium"}>{slot} {isBooked ? "(Booked)" : ""}</option>
+                                        })}
+                                    </select>
                                 </div>
-                            )}
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2">End Time {!formDate || !formRoom ? <span className="text-red-500 text-xs ml-2 font-normal">(Sila pilih Tarikh & Bilik)</span> : ""}</label>
+                                    <select value={formEnd} onChange={e => setFormEnd(e.target.value)} required disabled={!formDate || !formRoom} className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none ${!formDate || !formRoom ? 'cursor-not-allowed' : 'cursor-pointer'} ${darkMode ? 'bg-slate-900/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`}>
+                                        <option value="" disabled>Select End</option>
+                                        {availableSlots.map((slot, i) => {
+                                            if(formStart && availableSlots.indexOf(slot) < availableSlots.indexOf(formStart)) return <option key={i} disabled className="hidden">{slot}</option>;
+                                            const isBooked = isSlotBooked(slot, formDate, formRoom);
+                                            return <option key={i} value={slot} disabled={isBooked} className={isBooked ? "text-slate-400 line-through bg-slate-100 dark:bg-slate-800" : "font-medium"}>{slot} {isBooked ? "(Booked)" : ""}</option>
+                                        })}
+                                    </select>
+                                </div>
+                            </div>
 
                             <button type="submit" disabled={loading} className="w-full mt-8 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex justify-center items-center text-lg transform hover:-translate-y-1">
                                 {loading ? <i className="fas fa-spinner fa-spin"></i> : <><i className="fas fa-paper-plane mr-3"></i> Confirm Booking</>}
@@ -340,7 +342,10 @@
             const [filterMonth, setFilterMonth] = useState("");
             const [filterRoom, setFilterRoom] = useState("");
             
+            const hasFilter = filterMonth !== "" || filterRoom !== "";
+            
             const filteredBookings = useMemo(() => {
+                if (!hasFilter) return [];
                 let list = [...bookings].sort((a, b) => new Date(b.date) - new Date(a.date));
                 if (filterMonth) list = list.filter(b => b.date.startsWith(filterMonth));
                 if (filterRoom) list = list.filter(b => b.room === filterRoom);
@@ -349,6 +354,7 @@
 
             const downloadPDF = () => {
                 const element = document.getElementById('report-table');
+                if(!element) return;
                 const opt = {
                     margin: 0.5,
                     filename: `Report_${filterRoom || 'AllRooms'}_${filterMonth || 'AllDates'}.pdf`,
@@ -362,7 +368,7 @@
             return (
                 <div className="animate-fade-in">
                     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
-                        <h2 className="text-2xl font-bold">Booking Records & Reports</h2>
+                        <h2 className="text-2xl font-bold">Records & Query Report</h2>
                         <div className="flex flex-wrap gap-3 w-full xl:w-auto bg-slate-200 dark:bg-slate-800 p-2 rounded-xl">
                             <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className={`px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300 shadow-sm'}`} title="Filter by Month" />
                             <select value={filterRoom} onChange={e => setFilterRoom(e.target.value)} className={`px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300 shadow-sm'}`}>
@@ -370,50 +376,58 @@
                                 {DEFAULT_ROOMS.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
                             </select>
                             <button onClick={() => { setFilterMonth(""); setFilterRoom(""); }} className="px-3 py-2 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 font-medium">Clear</button>
-                            <button onClick={downloadPDF} className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-lg shadow-md flex items-center ml-auto xl:ml-0"><i className="fas fa-file-pdf mr-2"></i> Print PDF</button>
+                            {hasFilter && (
+                                <button onClick={downloadPDF} className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 text-white font-bold rounded-lg shadow flex items-center"><i className="fas fa-file-pdf mr-2"></i> PDF</button>
+                            )}
                         </div>
                     </div>
 
-                    <div id="report-table" className={`rounded-2xl shadow-lg overflow-hidden ${darkMode ? 'glass-dark' : 'glass-light'}`}>
-                        <div className="p-5 border-b dark:border-slate-700 flex justify-between items-center" data-html2canvas-ignore="true" style={{display: 'none'}}>
-                            <h2 className="text-xl font-bold">Laporan Bilik Khas SMK Pekan</h2>
-                            <p className="font-medium">{filterMonth || 'Semua Bulan'} | {filterRoom || 'Semua Bilik'}</p>
+                    {!hasFilter ? (
+                        <div className={`p-16 text-center rounded-2xl border-2 border-dashed ${darkMode ? 'border-slate-700 bg-slate-800/40' : 'border-slate-300 bg-white/60'}`}>
+                            <i className="fas fa-filter text-5xl text-slate-400 mb-4 block"></i>
+                            <h3 className="text-xl font-bold text-slate-600 dark:text-slate-300">Generate a Report</h3>
+                            <p className="text-slate-500 mt-2">Please select a Month or a Room from the filter menu above to view records and download PDFs.</p>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className={`${darkMode ? 'bg-slate-800/80' : 'bg-slate-100/80'} border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                                        <th className="p-4 font-semibold text-sm">Date</th>
-                                        <th className="p-4 font-semibold text-sm">Time</th>
-                                        <th className="p-4 font-semibold text-sm">Room</th>
-                                        <th className="p-4 font-semibold text-sm">Teacher</th>
-                                        <th className="p-4 font-semibold text-sm">Purpose</th>
-                                        <th className="p-4 font-semibold text-sm text-center" data-html2canvas-ignore>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredBookings.length === 0 ? (
-                                        <tr><td colSpan="6" className="p-10 text-center text-slate-500 text-lg"><i className="fas fa-folder-open text-4xl mb-3 block"></i>No records found.</td></tr>
-                                    ) : (
-                                        filteredBookings.map((b, i) => (
-                                            <tr key={i} className={`border-b last:border-0 ${darkMode ? 'border-slate-700/50 hover:bg-slate-800/50' : 'border-slate-200 hover:bg-slate-50/50'} transition-colors`}>
-                                                <td className="p-4 text-sm whitespace-nowrap font-medium">{b.date}</td>
-                                                <td className="p-4 text-sm whitespace-nowrap"><span className="px-2.5 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200 rounded border border-blue-200 dark:border-blue-800 text-xs font-semibold shadow-sm">{b.timeSlot}</span></td>
-                                                <td className="p-4 text-sm font-bold text-slate-700 dark:text-slate-200">{b.room}</td>
-                                                <td className="p-4 text-sm">{b.teacherName}</td>
-                                                <td className="p-4 text-sm">{b.purpose}</td>
-                                                <td className="p-4 text-center" data-html2canvas-ignore>
-                                                    <button onClick={() => handleDeleteBooking(b.id)} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 p-2.5 rounded-full transition-colors shadow-sm" title="Delete">
-                                                        <i className="fas fa-trash-alt"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
+                    ) : (
+                        <div id="report-table" className={`rounded-2xl shadow-lg overflow-hidden ${darkMode ? 'glass-dark' : 'glass-light'}`}>
+                            <div className="p-5 border-b dark:border-slate-700 flex justify-between items-center" data-html2canvas-ignore="true" style={{display: 'none'}}>
+                                <h2 className="text-xl font-bold">Laporan Bilik Khas SMK Pekan</h2>
+                                <p className="font-medium">{filterMonth || 'Semua Bulan'} | {filterRoom || 'Semua Bilik'}</p>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className={`${darkMode ? 'bg-slate-800/80' : 'bg-slate-100/80'} border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                                            <th className="p-4 font-semibold text-sm">Date</th>
+                                            <th className="p-4 font-semibold text-sm">Time</th>
+                                            <th className="p-4 font-semibold text-sm">Room</th>
+                                            <th className="p-4 font-semibold text-sm">Teacher</th>
+                                            <th className="p-4 font-semibold text-sm">Purpose</th>
+                                            <th className="p-4 font-semibold text-sm text-center" data-html2canvas-ignore>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredBookings.length === 0 ? (
+                                            <tr><td colSpan="6" className="p-10 text-center text-slate-500 text-lg"><i className="fas fa-folder-open text-4xl mb-3 block"></i>No records found for this query.</td></tr>
+                                        ) : (
+                                            filteredBookings.map((b, i) => (
+                                                <tr key={i} className={`border-b last:border-0 ${darkMode ? 'border-slate-700/50 hover:bg-slate-800/50' : 'border-slate-200 hover:bg-slate-50/50'} transition-colors`}>
+                                                    <td className="p-4 text-sm whitespace-nowrap font-medium">{b.date}</td>
+                                                    <td className="p-4 text-sm whitespace-nowrap"><span className="px-2.5 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200 rounded border border-blue-200 dark:border-blue-800 text-xs font-semibold shadow-sm">{b.timeSlot}</span></td>
+                                                    <td className="p-4 text-sm font-bold text-slate-700 dark:text-slate-200">{b.room}</td>
+                                                    <td className="p-4 text-sm">{b.teacherName}</td>
+                                                    <td className="p-4 text-sm">{b.purpose}</td>
+                                                    <td className="p-4 text-center" data-html2canvas-ignore>
+                                                        <button onClick={() => handleDeleteBooking(b.id)} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 p-2.5 rounded-full transition-colors shadow-sm" title="Delete"><i className="fas fa-trash-alt"></i></button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             );
         };
@@ -446,8 +460,7 @@
                             <div>
                                 <label className="block text-xs font-semibold mb-1 uppercase tracking-wide">Day</label>
                                 <select value={fDay} onChange={e => setFDay(e.target.value)} className={`w-full p-2.5 rounded-lg border text-sm font-medium outline-none ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-slate-300'}`}>
-                                    <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option>
-                                    <option value="6">Saturday</option><option value="0">Sunday</option>
+                                    <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
                                 </select>
                             </div>
                             <div>
@@ -547,9 +560,18 @@
                     clearTimeout(timeoutId);
                     if (res.ok) {
                         const data = await res.json();
-                        setBookings(data.bookings || []);
+                        
+                        // PENYELESAIAN ISU TARIKH HILANG DARI GOOGLE SHEETS
+                        // Jika format tarikh ialah string ISO (mengandungi 'T'), paksa ke YYYY-MM-DD
+                        const processedBookings = (data.bookings || []).map(b => ({
+                            ...b,
+                            date: b.date && b.date.includes('T') ? getSafeYYYYMMDD(b.date) : b.date
+                        }));
+                        
+                        setBookings(processedBookings);
                         setFixedSchedules(data.fixedSchedules || []);
-                        localStorage.setItem('mockBookings', JSON.stringify(data.bookings || []));
+                        
+                        localStorage.setItem('mockBookings', JSON.stringify(processedBookings));
                         localStorage.setItem('mockFixed', JSON.stringify(data.fixedSchedules || []));
                     }
                 } catch (error) {
@@ -576,21 +598,21 @@
                 setLoading(true);
                 newBooking.id = new Date().getTime().toString();
                 
-                // Semak silang (Double-Check) sebelum simpan untuk kurangkan kesilapan concurrecy
+                // Double Check Semasa Confirm Booking
                 await fetchData(true);
-                const dayOfWeek = getDayOfWeek(newBooking.date);
-                const availableSlots = getSlotsForDay(dayOfWeek);
-                const times = newBooking.timeSlot.split(" - ");
-                const rangeToBook = times.length === 2 ? getSlotRange(times[0], times[1], availableSlots) : [newBooking.timeSlot];
+                const dWeek = getDayOfWeek(newBooking.date);
+                const availableSlots = getSlotsForDay(dWeek);
+                const times = newBooking.timeSlot.split("-").map(s=>s.trim());
+                const rangeToBook = times.length === 2 ? getSlotRange(times[0], times[1], availableSlots) : [newBooking.timeSlot.trim()];
                 
                 const collision = rangeToBook.some(slot => bookings.some(b => {
                         if(b.date !== newBooking.date || b.room !== newBooking.room) return false;
-                        const bTimes = b.timeSlot.split(" - ");
-                        return (bTimes.length === 2) ? getSlotRange(bTimes[0], bTimes[1], availableSlots).includes(slot) : b.timeSlot === slot;
+                        const bTimes = b.timeSlot.split("-").map(s=>s.trim());
+                        return (bTimes.length === 2) ? getSlotRange(bTimes[0], bTimes[1], availableSlots).includes(slot) : b.timeSlot.trim() === slot;
                     }));
 
                 if (collision) {
-                    showNotification("Slot masa baru sahaja diambil oleh orang lain. Sila pilih masa lain.", "error");
+                    showNotification("Slot masa baru sahaja diambil oleh pengguna lain! Sila pilih masa lain.", "error");
                     setLoading(false);
                     return;
                 }
@@ -602,7 +624,7 @@
                     localStorage.setItem('mockBookings', JSON.stringify(updated));
                     showNotification("Booking successful!");
                     if(onSuccess) onSuccess();
-                    setActiveTab('list');
+                    setActiveTab('dashboard'); // Kembali ke dashboard
                 } else {
                     showNotification("Failed to save booking to server.", "error");
                 }
@@ -636,7 +658,6 @@
             };
 
             const handleDeleteFixed = async (id) => {
-                if(!confirm("Delete this fixed schedule?")) return;
                 setLoading(true);
                 const success = await saveToAPI({ action: 'deleteFixed', id: id });
                 if (success) {
@@ -651,10 +672,9 @@
             return (
                 <div className={`min-h-screen flex flex-col md:flex-row transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
                     
-                    {/* Toast Notification */}
                     {notification && (
                         <div className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 animate-fade-in border ${notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/90 dark:border-red-800 dark:text-red-100' : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/90 dark:border-emerald-800 dark:text-emerald-100'}`}>
-                            <i className={`fas ${notification.type === 'error' ? 'fa-times-circle text-red-500 dark:text-red-300' : 'fa-check-circle text-emerald-500 dark:text-emerald-300'} text-2xl`}></i>
+                            <i className={`fas ${notification.type === 'error' ? 'fa-times-circle' : 'fa-check-circle'} text-2xl`}></i>
                             <span className="font-bold text-base">{notification.msg}</span>
                         </div>
                     )}
@@ -674,7 +694,7 @@
                         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
                             <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${activeTab === 'dashboard' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-[1.02]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}><i className="fas fa-chart-pie w-6 text-center"></i> Dashboard</button>
                             <button onClick={() => setActiveTab('new')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${activeTab === 'new' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-[1.02]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}><i className="fas fa-calendar-plus w-6 text-center"></i> New Booking</button>
-                            <button onClick={() => setActiveTab('list')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${activeTab === 'list' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-[1.02]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}><i className="fas fa-folder-open w-6 text-center"></i> Records & Report</button>
+                            <button onClick={() => setActiveTab('list')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${activeTab === 'list' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-[1.02]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}><i className="fas fa-print w-6 text-center"></i> Reports & Print</button>
                             <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${activeTab === 'settings' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-[1.02]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}><i className="fas fa-sliders-h w-6 text-center"></i> Admin Panel</button>
                         </div>
                         
@@ -693,19 +713,16 @@
                     {/* Main Content */}
                     <div className="flex-1 flex flex-col w-full overflow-hidden">
                         
-                        {/* Offline Warning Banner */}
                         {!SCRIPT_URL && (
                             <div className="w-full bg-red-600 text-white text-center py-2.5 px-4 text-sm font-bold shadow-md z-40 flex items-center justify-center gap-2">
-                                <i className="fas fa-exclamation-triangle"></i> SCRIPT_URL Kosong! Sistem beroperasi secara Offline (Local Storage sahaja).
+                                <i className="fas fa-exclamation-triangle"></i> SCRIPT_URL Kosong! Sila masukkan pautan di dalam kod.
                             </div>
                         )}
                         
-                        {/* Banner Atas (Kekal) */}
                         <div className="w-full bg-slate-200 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 flex items-center justify-center overflow-hidden">
                              <img src="2.png" alt="School Banner" className="w-full h-auto object-contain object-center" onError={(e) => { e.target.style.display = 'none'; }} />
                         </div>
 
-                        {/* Tab Content */}
                         <div className="flex-1 p-4 md:p-8 overflow-y-auto">
                             <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none' }}>
                                 <DashboardView bookings={bookings} fixedSchedules={fixedSchedules} darkMode={darkMode} />
