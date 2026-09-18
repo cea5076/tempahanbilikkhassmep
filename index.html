@@ -15,55 +15,44 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
         
-        /* Glassmorphism Classes */
         .glass-light {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
         }
         .glass-dark {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
         
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
         
-        /* Calendar Hover Effects */
-        .calendar-day:hover { transform: scale(1.05); z-index: 10; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .bar-animate { transition: width 1s ease-in-out; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- KONFIGURASI UTAMA ---
+        // PENTING: URL ini wajib betul untuk memastikan data disimpan di Google Sheets.
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzGHdEMd1ItlG6BWMqDv9B8INJVHU622ii0Vq_tU-bCV2lEgzZuRyKLXz9Lh7HLg5JKtg/exec"; 
         
         const DEFAULT_ROOMS = [
-            { name: "Makmal Komputer", image: "https://placehold.co/600x400/475569/ffffff?text=Makmal+Komputer" },
-            { name: "Digital Hub", image: "https://placehold.co/600x400/475569/ffffff?text=Digital+Hub" },
-            { name: "Pusat Sumber Al Ghazali", image: "https://placehold.co/600x400/475569/ffffff?text=PSS+Al+Ghazali" },
-            { name: "Bilik Eksplorasi Sarjana", image: "https://placehold.co/600x400/475569/ffffff?text=Eksplorasi+Sarjana" },
-            { name: "Anjung Suluh Budiman", image: "https://placehold.co/600x400/475569/ffffff?text=Anjung+Suluh+Budiman" },
-            { name: "Dewan Aspirasi Sh Mohmed Puzi", image: "https://placehold.co/600x400/475569/ffffff?text=Dewan+Aspirasi" },
-            { name: "Bilik Masakan SRT", image: "https://placehold.co/600x400/475569/ffffff?text=Masakan+SRT" },
-            { name: "Bilik Jahitan SRT", image: "https://placehold.co/600x400/475569/ffffff?text=Jahitan+SRT" },
-            { name: "Bengkel MPV", image: "https://placehold.co/600x400/475569/ffffff?text=Bengkel+MPV" },
-            { name: "Bilik SAL", image: "https://placehold.co/600x400/475569/ffffff?text=Bilik+SAL" },
-            { name: "Bengkel RBT 1", image: "https://placehold.co/600x400/475569/ffffff?text=Bengkel+RBT+1" },
-            { name: "Bengkel RBT 2", image: "https://placehold.co/600x400/475569/ffffff?text=Bengkel+RBT+2" },
-            { name: "Bengkel RBT 3", image: "https://placehold.co/600x400/475569/ffffff?text=Bengkel+RBT+3" }
+            { name: "Makmal Komputer" }, { name: "Digital Hub" }, { name: "Pusat Sumber Al Ghazali" },
+            { name: "Bilik Eksplorasi Sarjana" }, { name: "Anjung Suluh Budiman" }, { name: "Dewan Aspirasi Sh Mohmed Puzi" },
+            { name: "Bilik Masakan SRT" }, { name: "Bilik Jahitan SRT" }, { name: "Bengkel MPV" },
+            { name: "Bilik SAL" }, { name: "Bengkel RBT 1" }, { name: "Bengkel RBT 2" }, { name: "Bengkel RBT 3" }
         ];
 
+        // Masa telah dipanjangkan sehingga 5.00 PM (17:10 bagi slot terakhir normal, 17:00 bagi Jumaat)
         const TIME_SLOTS_NORMAL = ["07:40 AM", "08:10 AM", "08:40 AM", "09:10 AM", "09:40 AM", "10:10 AM", "10:40 AM", "11:10 AM", "11:40 AM", "12:10 PM", "12:40 PM", "01:10 PM", "01:40 PM", "02:10 PM", "02:40 PM", "03:10 PM", "03:40 PM", "04:10 PM", "04:40 PM", "05:10 PM"];
         const TIME_SLOTS_FRIDAY = ["07:30 AM", "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM"];
         const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -71,22 +60,13 @@
 
         const getSafeYYYYMMDD = (dateObj) => {
             const d = new Date(dateObj);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         };
 
-        const getDayOfWeek = (dateStr) => {
-            if (!dateStr) return -1;
-            return new Date(dateStr).getDay(); 
-        };
-
-        const getSlotsForDay = (dayIndex) => {
-            if (dayIndex === 5) return TIME_SLOTS_FRIDAY;
-            if (dayIndex >= 1 && dayIndex <= 4) return TIME_SLOTS_NORMAL;
-            return [];
-        };
+        const getDayOfWeek = (dateStr) => !dateStr ? -1 : new Date(dateStr).getDay(); 
+        
+        // Hujung minggu kini boleh ditempah dan menggunakan masa NORMAL.
+        const getSlotsForDay = (dayIndex) => dayIndex === 5 ? TIME_SLOTS_FRIDAY : TIME_SLOTS_NORMAL;
 
         const getSlotRange = (start, end, availableSlots) => {
             const startIndex = availableSlots.indexOf(start);
@@ -95,21 +75,446 @@
             return availableSlots.slice(startIndex, endIndex + 1);
         };
 
+        const DashboardView = ({ bookings, fixedSchedules, darkMode }) => {
+            const [viewMode, setViewMode] = useState('daily'); // 'daily' atau 'room_monthly'
+            const [selectedDate, setSelectedDate] = useState(getSafeYYYYMMDD(new Date()));
+            
+            // State untuk paparan Bulanan Bilik Khas
+            const [selectedRoom, setSelectedRoom] = useState(DEFAULT_ROOMS[0].name);
+            const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
+
+            const targetDayOfWeek = getDayOfWeek(selectedDate);
+            const availableSlotsToday = getSlotsForDay(targetDayOfWeek);
+            const targetBookings = bookings.filter(b => b.date === selectedDate);
+            const targetFixed = fixedSchedules.filter(f => parseInt(f.dayOfWeek) === targetDayOfWeek);
+
+            // Kira data graf bar harian
+            const calculateDailyUsage = () => {
+                if (availableSlotsToday.length === 0) return [];
+                return DEFAULT_ROOMS.map(room => {
+                    let usedSlotsCount = 0;
+                    targetFixed.forEach(f => {
+                        if (f.room === room.name) {
+                            const times = f.timeSlot.split(" - ");
+                            usedSlotsCount += (times.length === 2 ? getSlotRange(times[0], times[1], availableSlotsToday) : [f.timeSlot]).length;
+                        }
+                    });
+                    targetBookings.forEach(b => {
+                        if (b.room === room.name) {
+                            const times = b.timeSlot.split(" - ");
+                            usedSlotsCount += (times.length === 2 ? getSlotRange(times[0], times[1], availableSlotsToday) : [b.timeSlot]).length;
+                        }
+                    });
+                    return { name: room.name, pct: Math.min((usedSlotsCount / availableSlotsToday.length) * 100, 100) };
+                });
+            };
+            const dailyUsageData = calculateDailyUsage();
+
+            // Setup kalendar bulanan bilik khas
+            const mYear = currentMonthDate.getFullYear();
+            const mMonth = currentMonthDate.getMonth();
+            const daysInMonth = new Date(mYear, mMonth + 1, 0).getDate();
+            const firstDayOfMonth = new Date(mYear, mMonth, 1).getDay();
+            const blanks = Array.from({ length: firstDayOfMonth }, (_, i) => i);
+            const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+            return (
+                <div className="animate-fade-in space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h2 className="text-2xl font-bold">Dashboard</h2>
+                        <div className="flex bg-slate-200 dark:bg-slate-700 rounded-lg p-1 shadow-inner">
+                            <button onClick={() => setViewMode('daily')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'daily' ? 'bg-white dark:bg-slate-800 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>Daily Graph</button>
+                            <button onClick={() => setViewMode('room_monthly')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'room_monthly' ? 'bg-white dark:bg-slate-800 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>Monthly Room View</button>
+                        </div>
+                    </div>
+
+                    {viewMode === 'daily' ? (
+                        <div className={`p-6 md:p-8 rounded-2xl shadow-lg ${darkMode ? 'glass-dark' : 'glass-light'}`}>
+                            <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4 border-b pb-4 dark:border-slate-700">
+                                <h3 className="font-bold text-xl">Daily Room Usage (%)</h3>
+                                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700">
+                                    <i className="fas fa-calendar-day text-blue-500 mr-3 ml-2"></i>
+                                    <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="bg-transparent outline-none font-medium cursor-pointer" />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-6">
+                                {dailyUsageData.map((data, idx) => (
+                                    <div key={idx} className="relative w-full">
+                                        <div className="flex justify-between text-sm font-semibold mb-2">
+                                            <span className="flex items-center"><i className="fas fa-door-open mr-2 text-slate-400"></i>{data.name}</span>
+                                            <span className={data.pct > 0 ? "text-blue-600 dark:text-blue-400" : "text-slate-400"}>{Math.round(data.pct)}%</span>
+                                        </div>
+                                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-5 overflow-hidden flex shadow-inner">
+                                            <div className={`h-full bar-animate rounded-full shadow-md ${data.pct > 75 ? 'bg-gradient-to-r from-red-500 to-red-400' : data.pct > 30 ? 'bg-gradient-to-r from-amber-500 to-amber-400' : 'bg-gradient-to-r from-green-500 to-emerald-400'}`} style={{ width: `${data.pct}%` }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={`p-6 rounded-2xl shadow-lg ${darkMode ? 'glass-dark' : 'glass-light'}`}>
+                            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                                <select value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)} className={`w-full md:w-72 p-3 font-bold rounded-lg border shadow-sm outline-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300'}`}>
+                                    {DEFAULT_ROOMS.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+                                </select>
+                                
+                                <div className="flex items-center gap-4 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700">
+                                    <button onClick={() => setCurrentMonthDate(new Date(mYear, mMonth - 1, 1))} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"><i className="fas fa-chevron-left text-sm"></i></button>
+                                    <h3 className="text-lg font-bold w-40 text-center tracking-wide">{MONTHS[mMonth]} {mYear}</h3>
+                                    <button onClick={() => setCurrentMonthDate(new Date(mYear, mMonth + 1, 1))} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"><i className="fas fa-chevron-right text-sm"></i></button>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-7 gap-1 md:gap-2 text-center text-xs md:text-sm font-semibold mb-2">
+                                <div className="text-red-500">Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div className="text-blue-500">Sat</div>
+                            </div>
+                            
+                            <div className="grid grid-cols-7 gap-1 md:gap-2">
+                                {blanks.map(b => <div key={`blank-${b}`} className="p-2 md:p-4 opacity-0"></div>)}
+                                {days.map(day => {
+                                    const dStr = getSafeYYYYMMDD(new Date(mYear, mMonth, day));
+                                    const dDayOfWeek = getDayOfWeek(dStr);
+                                    
+                                    // Filter Tempahan Untuk Hari dan Bilik Terpilih Sahaja
+                                    const dayBookings = bookings.filter(bk => bk.date === dStr && bk.room === selectedRoom);
+                                    const fixedBookings = fixedSchedules.filter(f => parseInt(f.dayOfWeek) === dDayOfWeek && f.room === selectedRoom);
+                                    
+                                    const hasData = dayBookings.length > 0 || fixedBookings.length > 0;
+                                    const isToday = dStr === getSafeYYYYMMDD(new Date());
+                                    
+                                    return (
+                                        <div key={day} className={`border rounded-xl p-1.5 md:p-2 min-h-[90px] md:min-h-[120px] flex flex-col transition-all hover:shadow-md ${isToday ? 'ring-2 ring-blue-500' : ''} ${darkMode ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200 bg-white'}`}>
+                                            <span className={`text-xs md:text-sm font-bold mb-2 flex justify-center items-center w-6 h-6 rounded-full ${hasData ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : ''}`}>{day}</span>
+                                            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                                                {fixedBookings.map((f, i) => (
+                                                    <div key={`f-${i}`} className="text-[10px] md:text-xs leading-tight bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-200 rounded p-1.5 shadow-sm border border-amber-200 dark:border-amber-700/50">
+                                                        <div className="font-semibold mb-0.5"><i className="fas fa-lock text-[8px] mr-1"></i>{f.timeSlot}</div>
+                                                        <div className="truncate opacity-90">{f.purpose}</div>
+                                                    </div>
+                                                ))}
+                                                {dayBookings.map((b, i) => (
+                                                    <div key={`b-${i}`} className="text-[10px] md:text-xs leading-tight bg-green-100 text-green-800 dark:bg-green-900/70 dark:text-green-200 rounded p-1.5 shadow-sm border border-green-200 dark:border-green-700/50">
+                                                        <div className="font-semibold mb-0.5"><i className="fas fa-user text-[8px] mr-1"></i>{b.timeSlot}</div>
+                                                        <div className="truncate opacity-90">{b.teacherName}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const BookingForm = ({ bookings, fixedSchedules, handleAddBooking, loading, showNotification, darkMode }) => {
+            const [formName, setFormName] = useState("");
+            const [formDate, setFormDate] = useState("");
+            const [formStart, setFormStart] = useState("");
+            const [formEnd, setFormEnd] = useState("");
+            const [formRoom, setFormRoom] = useState("");
+            const [formPurpose, setFormPurpose] = useState("");
+
+            const todayStr = getSafeYYYYMMDD(new Date());
+            const dayOfWeek = getDayOfWeek(formDate);
+            const availableSlots = getSlotsForDay(dayOfWeek);
+            
+            // Logik Anti-Collision
+            const isSlotBooked = (slotToCheck) => {
+                if (!formDate || !formRoom) return false;
+                
+                const isFixed = fixedSchedules.some(f => {
+                    if (parseInt(f.dayOfWeek) !== dayOfWeek || f.room !== formRoom) return false;
+                    const times = f.timeSlot.split(" - ");
+                    return (times.length === 2) ? getSlotRange(times[0], times[1], availableSlots).includes(slotToCheck) : f.timeSlot === slotToCheck;
+                });
+                if(isFixed) return true;
+
+                return bookings.some(b => {
+                    if (b.date !== formDate || b.room !== formRoom) return false;
+                    const times = b.timeSlot.split(" - ");
+                    return (times.length === 2) ? getSlotRange(times[0], times[1], availableSlots).includes(slotToCheck) : b.timeSlot === slotToCheck;
+                });
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!formName || !formDate || !formStart || !formEnd || !formRoom || !formPurpose) {
+                    showNotification("Please fill in all fields.", "error"); return;
+                }
+
+                const rangeToBook = getSlotRange(formStart, formEnd, availableSlots);
+                const collision = rangeToBook.some(s => isSlotBooked(s));
+                
+                if (collision) {
+                    showNotification("Collision detected! Time slot already booked.", "error"); return;
+                }
+                
+                handleAddBooking({
+                    teacherName: formName, purpose: formPurpose, date: formDate,
+                    timeSlot: formStart === formEnd ? formStart : `${formStart} - ${formEnd}`,
+                    room: formRoom
+                }, () => {
+                    setFormName(""); setFormPurpose(""); setFormStart(""); setFormEnd("");
+                });
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto animate-fade-in">
+                    <h2 className="text-2xl font-bold mb-6">New Booking</h2>
+                    <div className={`p-6 md:p-8 rounded-2xl shadow-lg ${darkMode ? 'glass-dark' : 'glass-light'}`}>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2">Teacher's Name</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i className="fas fa-user"></i></div>
+                                        <input type="text" value={formName} onChange={e => setFormName(e.target.value)} required placeholder="e.g. Cikgu Ali" className={`w-full pl-10 pr-3 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none transition-shadow ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2">Special Room</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i className="fas fa-door-open"></i></div>
+                                        <select value={formRoom} onChange={e => setFormRoom(e.target.value)} required className={`w-full pl-10 pr-3 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`}>
+                                            <option value="" disabled>Select Room</option>
+                                            {DEFAULT_ROOMS.map((r, i) => <option key={i} value={r.name}>{r.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2">Date (Include Weekends)</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i className="fas fa-calendar"></i></div>
+                                        <input type="date" min={todayStr} value={formDate} onChange={e => { setFormDate(e.target.value); setFormStart(""); setFormEnd(""); }} required className={`w-full pl-10 pr-3 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2">Purpose / Subject</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i className="fas fa-book"></i></div>
+                                        <input type="text" value={formPurpose} onChange={e => setFormPurpose(e.target.value)} required placeholder="e.g. Science Class 5A" className={`w-full pl-10 pr-3 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none transition-shadow ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`} />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {formDate && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 dark:bg-slate-800/80 p-5 rounded-xl border border-blue-100 dark:border-slate-700 mt-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-2">Start Time</label>
+                                        <select value={formStart} onChange={e => setFormStart(e.target.value)} required className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer ${darkMode ? 'bg-slate-900/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`}>
+                                            <option value="" disabled>Select Start</option>
+                                            {availableSlots.map((slot, i) => {
+                                                const isBooked = isSlotBooked(slot);
+                                                return <option key={i} value={slot} disabled={isBooked} className={isBooked ? "text-slate-400 line-through bg-slate-100 dark:bg-slate-800" : "font-medium"}>{slot} {isBooked ? "(Booked)" : ""}</option>
+                                            })}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-2">End Time</label>
+                                        <select value={formEnd} onChange={e => setFormEnd(e.target.value)} required className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer ${darkMode ? 'bg-slate-900/50 border-slate-600' : 'bg-white border-slate-300 shadow-sm'}`}>
+                                            <option value="" disabled>Select End</option>
+                                            {availableSlots.map((slot, i) => {
+                                                if(formStart && availableSlots.indexOf(slot) < availableSlots.indexOf(formStart)) return <option key={i} disabled className="hidden">{slot}</option>;
+                                                const isBooked = isSlotBooked(slot);
+                                                return <option key={i} value={slot} disabled={isBooked} className={isBooked ? "text-slate-400 line-through bg-slate-100 dark:bg-slate-800" : "font-medium"}>{slot} {isBooked ? "(Booked)" : ""}</option>
+                                            })}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            <button type="submit" disabled={loading} className="w-full mt-8 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex justify-center items-center text-lg transform hover:-translate-y-1">
+                                {loading ? <i className="fas fa-spinner fa-spin"></i> : <><i className="fas fa-paper-plane mr-3"></i> Confirm Booking</>}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        const ListView = ({ bookings, handleDeleteBooking, darkMode }) => {
+            const [filterMonth, setFilterMonth] = useState("");
+            const [filterRoom, setFilterRoom] = useState("");
+            
+            const filteredBookings = useMemo(() => {
+                let list = [...bookings].sort((a, b) => new Date(b.date) - new Date(a.date));
+                if (filterMonth) list = list.filter(b => b.date.startsWith(filterMonth));
+                if (filterRoom) list = list.filter(b => b.room === filterRoom);
+                return list;
+            }, [bookings, filterMonth, filterRoom]);
+
+            const downloadPDF = () => {
+                const element = document.getElementById('report-table');
+                const opt = {
+                    margin: 0.5,
+                    filename: `Report_${filterRoom || 'AllRooms'}_${filterMonth || 'AllDates'}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+                };
+                html2pdf().set(opt).from(element).save();
+            };
+
+            return (
+                <div className="animate-fade-in">
+                    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
+                        <h2 className="text-2xl font-bold">Booking Records & Reports</h2>
+                        <div className="flex flex-wrap gap-3 w-full xl:w-auto bg-slate-200 dark:bg-slate-800 p-2 rounded-xl">
+                            <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className={`px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300 shadow-sm'}`} title="Filter by Month" />
+                            <select value={filterRoom} onChange={e => setFilterRoom(e.target.value)} className={`px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300 shadow-sm'}`}>
+                                <option value="">All Rooms</option>
+                                {DEFAULT_ROOMS.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+                            </select>
+                            <button onClick={() => { setFilterMonth(""); setFilterRoom(""); }} className="px-3 py-2 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 font-medium">Clear</button>
+                            <button onClick={downloadPDF} className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-lg shadow-md flex items-center ml-auto xl:ml-0"><i className="fas fa-file-pdf mr-2"></i> Print PDF</button>
+                        </div>
+                    </div>
+
+                    <div id="report-table" className={`rounded-2xl shadow-lg overflow-hidden ${darkMode ? 'glass-dark' : 'glass-light'}`}>
+                        <div className="p-5 border-b dark:border-slate-700 flex justify-between items-center" data-html2canvas-ignore="true" style={{display: 'none'}}>
+                            <h2 className="text-xl font-bold">Laporan Bilik Khas SMK Pekan</h2>
+                            <p className="font-medium">{filterMonth || 'Semua Bulan'} | {filterRoom || 'Semua Bilik'}</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className={`${darkMode ? 'bg-slate-800/80' : 'bg-slate-100/80'} border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                                        <th className="p-4 font-semibold text-sm">Date</th>
+                                        <th className="p-4 font-semibold text-sm">Time</th>
+                                        <th className="p-4 font-semibold text-sm">Room</th>
+                                        <th className="p-4 font-semibold text-sm">Teacher</th>
+                                        <th className="p-4 font-semibold text-sm">Purpose</th>
+                                        <th className="p-4 font-semibold text-sm text-center" data-html2canvas-ignore>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredBookings.length === 0 ? (
+                                        <tr><td colSpan="6" className="p-10 text-center text-slate-500 text-lg"><i className="fas fa-folder-open text-4xl mb-3 block"></i>No records found.</td></tr>
+                                    ) : (
+                                        filteredBookings.map((b, i) => (
+                                            <tr key={i} className={`border-b last:border-0 ${darkMode ? 'border-slate-700/50 hover:bg-slate-800/50' : 'border-slate-200 hover:bg-slate-50/50'} transition-colors`}>
+                                                <td className="p-4 text-sm whitespace-nowrap font-medium">{b.date}</td>
+                                                <td className="p-4 text-sm whitespace-nowrap"><span className="px-2.5 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200 rounded border border-blue-200 dark:border-blue-800 text-xs font-semibold shadow-sm">{b.timeSlot}</span></td>
+                                                <td className="p-4 text-sm font-bold text-slate-700 dark:text-slate-200">{b.room}</td>
+                                                <td className="p-4 text-sm">{b.teacherName}</td>
+                                                <td className="p-4 text-sm">{b.purpose}</td>
+                                                <td className="p-4 text-center" data-html2canvas-ignore>
+                                                    <button onClick={() => handleDeleteBooking(b.id)} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 p-2.5 rounded-full transition-colors shadow-sm" title="Delete">
+                                                        <i className="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const SettingsView = ({ fixedSchedules, handleAddFixed, handleDeleteFixed, darkMode, showNotification }) => {
+            const [fDay, setFDay] = useState("1");
+            const [fStart, setFStart] = useState("");
+            const [fEnd, setFEnd] = useState("");
+            const [fRoom, setFRoom] = useState("");
+            const [fPurpose, setFPurpose] = useState("");
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if(!fStart || !fEnd || !fRoom || !fPurpose) { showNotification("Please complete the form", "error"); return; }
+                const finalTimeSlot = fStart === fEnd ? fStart : `${fStart} - ${fEnd}`;
+                handleAddFixed({ dayOfWeek: fDay, timeSlot: finalTimeSlot, room: fRoom, purpose: fPurpose });
+                setFStart(""); setFEnd(""); setFRoom(""); setFPurpose("");
+            };
+
+            return (
+                <div className="animate-fade-in">
+                    <h2 className="text-2xl font-bold mb-6">Admin Panel</h2>
+                    <div className={`p-6 md:p-8 rounded-2xl shadow-lg ${darkMode ? 'glass-dark' : 'glass-light'}`}>
+                        <div className="flex items-center mb-6 border-b pb-4 dark:border-slate-700">
+                            <i className="fas fa-lock text-amber-500 text-2xl mr-3"></i>
+                            <h3 className="font-bold text-xl">Fixed Schedules (Jadual Tetap)</h3>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8 bg-slate-100 dark:bg-slate-800/50 p-5 rounded-xl border dark:border-slate-700 items-end">
+                            <div>
+                                <label className="block text-xs font-semibold mb-1 uppercase tracking-wide">Day</label>
+                                <select value={fDay} onChange={e => setFDay(e.target.value)} className={`w-full p-2.5 rounded-lg border text-sm font-medium outline-none ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-slate-300'}`}>
+                                    <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option>
+                                    <option value="6">Saturday</option><option value="0">Sunday</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold mb-1 uppercase tracking-wide">Start Time</label>
+                                <select value={fStart} onChange={e => setFStart(e.target.value)} required className={`w-full p-2.5 rounded-lg border text-sm font-medium outline-none ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-slate-300'}`}>
+                                    <option value="">Select</option>
+                                    {(fDay === "5" ? TIME_SLOTS_FRIDAY : TIME_SLOTS_NORMAL).map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold mb-1 uppercase tracking-wide">End Time</label>
+                                <select value={fEnd} onChange={e => setFEnd(e.target.value)} required className={`w-full p-2.5 rounded-lg border text-sm font-medium outline-none ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-slate-300'}`}>
+                                    <option value="">Select</option>
+                                    {(fDay === "5" ? TIME_SLOTS_FRIDAY : TIME_SLOTS_NORMAL).map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="lg:col-span-2">
+                                <label className="block text-xs font-semibold mb-1 uppercase tracking-wide">Room</label>
+                                <select value={fRoom} onChange={e => setFRoom(e.target.value)} required className={`w-full p-2.5 rounded-lg border text-sm font-medium outline-none ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-slate-300'}`}>
+                                    <option value="">Select Room</option>
+                                    {DEFAULT_ROOMS.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="sm:col-span-2 lg:col-span-1">
+                                <label className="block text-xs font-semibold mb-1 uppercase tracking-wide">Purpose/Class</label>
+                                <div className="flex gap-2">
+                                    <input type="text" value={fPurpose} onChange={e => setFPurpose(e.target.value)} required placeholder="e.g. 5A" className={`w-full p-2.5 rounded-lg border text-sm font-medium outline-none ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-slate-300'}`} />
+                                    <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all"><i className="fas fa-plus"></i></button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div className="overflow-x-auto rounded-xl border dark:border-slate-700">
+                            <table className="w-full text-left text-sm border-collapse">
+                                <thead>
+                                    <tr className={`border-b ${darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                                        <th className="p-3 font-bold">Day</th><th className="p-3 font-bold">Time</th><th className="p-3 font-bold">Room</th><th className="p-3 font-bold">Purpose</th><th className="p-3 font-bold text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {fixedSchedules.length === 0 ? <tr><td colSpan="5" className="p-8 text-center text-slate-500"><i className="fas fa-calendar-times text-3xl mb-2 block"></i>No fixed schedules found.</td></tr> : 
+                                        fixedSchedules.map((f, i) => (
+                                        <tr key={i} className={`border-b last:border-0 ${darkMode ? 'border-slate-700/50 hover:bg-slate-800/50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                                            <td className="p-3 font-medium">{DAYS[parseInt(f.dayOfWeek)]}</td>
+                                            <td className="p-3"><span className="px-2 py-1 bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 rounded border border-amber-200 dark:border-amber-700 text-xs font-semibold">{f.timeSlot}</span></td>
+                                            <td className="p-3 font-bold text-slate-700 dark:text-slate-200">{f.room}</td>
+                                            <td className="p-3">{f.purpose}</td>
+                                            <td className="p-3 text-center">
+                                                <button onClick={() => handleDeleteFixed(f.id)} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 p-2 rounded-full transition-colors"><i className="fas fa-trash-alt"></i></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const App = () => {
             const [darkMode, setDarkMode] = useState(false);
             const [activeTab, setActiveTab] = useState('dashboard');
             const [bookings, setBookings] = useState([]);
             const [fixedSchedules, setFixedSchedules] = useState([]);
-            const [settings, setSettings] = useState({});
             const [loading, setLoading] = useState(true);
             const [notification, setNotification] = useState(null);
-            
-            const rooms = useMemo(() => {
-                return DEFAULT_ROOMS.map(r => ({
-                    ...r,
-                    image: settings[`img_${r.name}`] || r.image
-                }));
-            }, [settings]);
 
             useEffect(() => {
                 const savedMode = localStorage.getItem('darkMode') === 'true';
@@ -118,135 +523,105 @@
 
                 const localBookings = JSON.parse(localStorage.getItem('mockBookings') || '[]');
                 const localFixed = JSON.parse(localStorage.getItem('mockFixed') || '[]');
-                const localSettings = JSON.parse(localStorage.getItem('mockSettings') || '{}');
                 
                 if (localBookings.length > 0 || localFixed.length > 0) {
                     setBookings(localBookings);
                     setFixedSchedules(localFixed);
-                    setSettings(localSettings);
+                    setLoading(false);
                 }
                 
-                fetchData(false);
-
-                // Auto-sync setiap 10 saat (Online Real-time)
-                let syncInterval;
-                if (SCRIPT_URL) {
-                    syncInterval = setInterval(() => {
-                        fetchData(true); 
-                    }, 10000); 
-                }
-
-                return () => {
-                    if (syncInterval) clearInterval(syncInterval);
-                };
+                fetchData();
+                
+                // Real-time Auto-Sync every 10 seconds silently
+                const syncInterval = setInterval(() => { if(SCRIPT_URL) fetchData(true) }, 10000); 
+                return () => clearInterval(syncInterval);
             }, []);
 
             const fetchData = async (silent = false) => {
-                if (!SCRIPT_URL) {
-                    if(!silent) setLoading(false);
-                    return;
-                }
-                
+                if (!SCRIPT_URL) { if(!silent) setLoading(false); return; }
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 8000);
 
                 try {
-                    const cacheBuster = `?t=${new Date().getTime()}`;
-                    const res = await fetch(SCRIPT_URL + cacheBuster, { 
-                        method: 'GET',
-                        signal: controller.signal 
-                    });
-                    
+                    const res = await fetch(SCRIPT_URL + `?t=${new Date().getTime()}`, { signal: controller.signal });
                     clearTimeout(timeoutId);
-                    
                     if (res.ok) {
                         const data = await res.json();
                         setBookings(data.bookings || []);
                         setFixedSchedules(data.fixedSchedules || []);
-                        setSettings(data.settings || {});
-                        
                         localStorage.setItem('mockBookings', JSON.stringify(data.bookings || []));
                         localStorage.setItem('mockFixed', JSON.stringify(data.fixedSchedules || []));
-                        localStorage.setItem('mockSettings', JSON.stringify(data.settings || {}));
                     }
                 } catch (error) {
-                    if(!silent) console.warn("Connection failed. Using offline data.");
+                    if(!silent) console.warn("Sync failed. Using offline data.");
                 } finally {
                     if(!silent) setLoading(false);
                 }
             };
 
-            const toggleDarkMode = () => {
-                const newMode = !darkMode;
-                setDarkMode(newMode);
-                localStorage.setItem('darkMode', newMode);
-                if (newMode) document.documentElement.classList.add('dark');
-                else document.documentElement.classList.remove('dark');
-            };
-
             const showNotification = (msg, type = 'success') => {
                 setNotification({ msg, type });
-                setTimeout(() => setNotification(null), 3000);
+                setTimeout(() => setNotification(null), 4000);
             };
 
             const saveToAPI = async (payload) => {
                 if (!SCRIPT_URL) return true;
                 try {
-                    const res = await fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        body: JSON.stringify(payload)
-                    });
+                    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
                     return res.ok;
-                } catch (error) {
-                    console.warn("API Error:", error);
-                    return false;
-                }
+                } catch (error) { return false; }
             };
 
-            const handleAddBooking = async (newBooking) => {
+            const handleAddBooking = async (newBooking, onSuccess) => {
                 setLoading(true);
                 newBooking.id = new Date().getTime().toString();
                 
+                // Semak silang (Double-Check) sebelum simpan untuk kurangkan kesilapan concurrecy
+                await fetchData(true);
+                const dayOfWeek = getDayOfWeek(newBooking.date);
+                const availableSlots = getSlotsForDay(dayOfWeek);
+                const times = newBooking.timeSlot.split(" - ");
+                const rangeToBook = times.length === 2 ? getSlotRange(times[0], times[1], availableSlots) : [newBooking.timeSlot];
+                
+                const collision = rangeToBook.some(slot => bookings.some(b => {
+                        if(b.date !== newBooking.date || b.room !== newBooking.room) return false;
+                        const bTimes = b.timeSlot.split(" - ");
+                        return (bTimes.length === 2) ? getSlotRange(bTimes[0], bTimes[1], availableSlots).includes(slot) : b.timeSlot === slot;
+                    }));
+
+                if (collision) {
+                    showNotification("Slot masa baru sahaja diambil oleh orang lain. Sila pilih masa lain.", "error");
+                    setLoading(false);
+                    return;
+                }
+
                 const success = await saveToAPI({ action: 'add', data: newBooking });
                 if (success) {
                     const updated = [...bookings, newBooking];
                     setBookings(updated);
                     localStorage.setItem('mockBookings', JSON.stringify(updated));
-                    showNotification("Tempahan berjaya direkodkan!");
+                    showNotification("Booking successful!");
+                    if(onSuccess) onSuccess();
                     setActiveTab('list');
                 } else {
-                    showNotification("Gagal menyimpan ke server.", "error");
+                    showNotification("Failed to save booking to server.", "error");
                 }
                 setLoading(false);
             };
 
             const handleDeleteBooking = async (id) => {
+                if(!confirm("Are you sure you want to delete this booking?")) return;
                 setLoading(true);
                 const success = await saveToAPI({ action: 'delete', id: id });
                 if (success) {
                     const updated = bookings.filter(b => b.id !== id);
                     setBookings(updated);
                     localStorage.setItem('mockBookings', JSON.stringify(updated));
-                    showNotification("Tempahan dipadam.");
-                } else {
-                    showNotification("Gagal memadam tempahan.", "error");
+                    showNotification("Booking deleted.");
                 }
                 setLoading(false);
             };
 
-            const handleUpdateSettings = async (newSettings) => {
-                setLoading(true);
-                const mergedSettings = { ...settings, ...newSettings };
-                
-                const success = await saveToAPI({ action: 'updateSettings', data: mergedSettings });
-                if (success) {
-                    setSettings(mergedSettings);
-                    localStorage.setItem('mockSettings', JSON.stringify(mergedSettings));
-                    showNotification("Tetapan berjaya disimpan!");
-                }
-                setLoading(false);
-            };
-            
             const handleAddFixed = async (newFixed) => {
                 setLoading(true);
                 newFixed.id = new Date().getTime().toString();
@@ -255,685 +630,95 @@
                     const updated = [...fixedSchedules, newFixed];
                     setFixedSchedules(updated);
                     localStorage.setItem('mockFixed', JSON.stringify(updated));
-                    showNotification("Jadual Tetap ditambah!");
+                    showNotification("Fixed schedule added!");
                 }
                 setLoading(false);
             };
-            
+
             const handleDeleteFixed = async (id) => {
-                 setLoading(true);
-                 const success = await saveToAPI({ action: 'deleteFixed', id: id });
-                 if (success) {
+                if(!confirm("Delete this fixed schedule?")) return;
+                setLoading(true);
+                const success = await saveToAPI({ action: 'deleteFixed', id: id });
+                if (success) {
                     const updated = fixedSchedules.filter(f => f.id !== id);
                     setFixedSchedules(updated);
                     localStorage.setItem('mockFixed', JSON.stringify(updated));
-                    showNotification("Jadual Tetap dipadam.");
+                    showNotification("Fixed schedule deleted.");
                 }
                 setLoading(false);
             };
-
-            const DashboardView = () => {
-                const [viewMode, setViewMode] = useState('today'); // 'today' or 'monthly'
-                const [selectedDate, setSelectedDate] = useState(getSafeYYYYMMDD(new Date()));
-                const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
-
-                const handlePrevMonth = () => setCurrentMonthDate(new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() - 1, 1));
-                const handleNextMonth = () => setCurrentMonthDate(new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1, 1));
-
-                const year = currentMonthDate.getFullYear();
-                const month = currentMonthDate.getMonth();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                const firstDayOfMonth = new Date(year, month, 1).getDay();
-                
-                const blanks = Array.from({ length: firstDayOfMonth }, (_, i) => i);
-                const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-                const targetDayOfWeek = getDayOfWeek(selectedDate);
-                const availableSlotsSelected = getSlotsForDay(targetDayOfWeek);
-                const targetBookings = bookings.filter(b => b.date === selectedDate);
-                const targetFixed = fixedSchedules.filter(f => parseInt(f.dayOfWeek) === targetDayOfWeek);
-
-                const calculateRoomUsagePercentage = (roomName) => {
-                    if (availableSlotsSelected.length === 0) return 0;
-                    let usedSlotsCount = 0;
-                    
-                    targetFixed.forEach(f => {
-                        if (f.room === roomName) {
-                            const times = f.timeSlot.split(" - ");
-                            const range = times.length === 2 ? getSlotRange(times[0], times[1], availableSlotsSelected) : [f.timeSlot];
-                            usedSlotsCount += range.length;
-                        }
-                    });
-
-                    targetBookings.forEach(b => {
-                        if (b.room === roomName) {
-                            const times = b.timeSlot.split(" - ");
-                            const range = times.length === 2 ? getSlotRange(times[0], times[1], availableSlotsSelected) : [b.timeSlot];
-                            usedSlotsCount += range.length;
-                        }
-                    });
-                    return Math.min((usedSlotsCount / availableSlotsSelected.length) * 100, 100);
-                };
-
-                const displayDateString = new Date(selectedDate).toLocaleDateString('en-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                const isWeekend = targetDayOfWeek === 0 || targetDayOfWeek === 6;
-
-                return (
-                    <div className="animate-fade-in space-y-8">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <h2 className="text-2xl font-bold">Dashboard</h2>
-                            
-                            <div className="flex bg-slate-200 dark:bg-slate-700 rounded-lg p-1">
-                                <button 
-                                    onClick={() => { setViewMode('today'); setSelectedDate(getSafeYYYYMMDD(new Date())); }} 
-                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'today' ? 'bg-white dark:bg-slate-800 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}`}>
-                                    Today
-                                </button>
-                                <button 
-                                    onClick={() => setViewMode('monthly')} 
-                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'monthly' ? 'bg-white dark:bg-slate-800 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}`}>
-                                    Monthly View
-                                </button>
-                            </div>
-                        </div>
-
-                        {}
-                        {viewMode === 'monthly' && (
-                            <div className={`p-6 rounded-2xl shadow-lg ${darkMode ? 'glass-dark' : 'glass-light'}`}>
-                                <div className="flex justify-between items-center mb-6">
-                                    <button onClick={handlePrevMonth} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600"><i className="fas fa-chevron-left"></i></button>
-                                    <h3 className="text-xl font-bold">{MONTHS[month]} {year}</h3>
-                                    <button onClick={handleNextMonth} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600"><i className="fas fa-chevron-right"></i></button>
-                                </div>
-                                
-                                <div className="grid grid-cols-7 gap-1 md:gap-2 text-center text-xs sm:text-sm font-semibold mb-2">
-                                    <div className="text-red-500">Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div className="text-blue-500">Sat</div>
-                                </div>
-                                <div className="grid grid-cols-7 gap-1 md:gap-2">
-                                    {blanks.map(b => <div key={`blank-${b}`} className="p-2 md:p-4 opacity-0"></div>)}
-                                    {days.map(day => {
-                                        const dStr = getSafeYYYYMMDD(new Date(year, month, day));
-                                        const isSel = selectedDate === dStr;
-                                        const dayBookingsCount = bookings.filter(bk => bk.date === dStr).length;
-                                        
-                                        return (
-                                            <div key={day} onClick={() => setSelectedDate(dStr)}
-                                                className={`calendar-day relative cursor-pointer border rounded-lg p-2 md:p-4 min-h-[60px] md:min-h-[80px] flex flex-col items-center justify-center transition-all ${
-                                                    isSel ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 
-                                                    darkMode ? 'border-slate-700 bg-slate-800/50 hover:bg-slate-700' : 'border-slate-200 bg-white hover:bg-slate-100'
-                                                }`}
-                                            >
-                                                <span className={`text-sm md:text-lg ${isSel ? 'font-bold' : ''}`}>{day}</span>
-                                                {dayBookingsCount > 0 && (
-                                                    <div className="absolute bottom-1 w-full flex justify-center">
-                                                        <span className={`text-[10px] px-1.5 rounded-full ${isSel ? 'bg-white text-blue-600' : 'bg-blue-500 text-white'}`}>{dayBookingsCount}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                        
-                        {}
-                        {!isWeekend && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {rooms.map((room, idx) => {
-                                    const usagePct = calculateRoomUsagePercentage(room.name);
-                                    return (
-                                        <div key={idx} className={`p-5 rounded-2xl shadow-sm transition-transform hover:-translate-y-1 ${darkMode ? 'glass-dark' : 'glass-light'}`}>
-                                            <div className="h-32 mb-4 rounded-xl overflow-hidden bg-slate-200">
-                                                <img src={room.image} alt={room.name} className="w-full h-full object-cover" onError={(e) => { e.target.src = "https://placehold.co/600x400/475569/ffffff?text=Image+Error" }} />
-                                            </div>
-                                            <h3 className="font-semibold text-lg line-clamp-1">{room.name}</h3>
-                                            
-                                            <div className="mt-4">
-                                                <div className="flex justify-between text-xs mb-1 font-medium">
-                                                    <span>% Usage</span>
-                                                    <span>{Math.round(usagePct)}%</span>
-                                                </div>
-                                                <div className="w-full bg-slate-200 rounded-full h-2.5 dark:bg-slate-700">
-                                                    <div className={`h-2.5 rounded-full ${usagePct > 80 ? 'bg-red-500' : usagePct > 40 ? 'bg-amber-500' : 'bg-green-500'}`} style={{ width: `${usagePct}%` }}></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
-
-                        <div id="schedule-grid" className={`rounded-2xl p-6 shadow-lg ${darkMode ? 'glass-dark' : 'glass-light'}`}>
-                            <h3 className="font-bold text-xl mb-4">
-                                Schedule: <span className="text-blue-600 dark:text-blue-400">{displayDateString}</span>
-                            </h3>
-                            
-                            {isWeekend ? (
-                                <div className="text-center py-8 text-slate-500">
-                                    <i className="fas fa-bed text-4xl mb-3"></i>
-                                    <p>Weekend. No bookings available.</p>
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto pb-4">
-                                    <table className="w-full text-center text-xs sm:text-sm border-collapse">
-                                        <thead>
-                                            <tr>
-                                                <th className={`p-3 text-left min-w-[160px] sticky left-0 z-20 ${darkMode ? 'bg-slate-800' : 'bg-white'} shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>Room / Time</th>
-                                                {availableSlotsSelected.map((slot, idx) => (
-                                                    <th key={idx} className={`p-3 min-w-[80px] whitespace-nowrap font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                        {slot.replace(' AM', 'am').replace(' PM', 'pm')}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {rooms.map((room, rIdx) => (
-                                                <tr key={rIdx} className={`border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                                                    <td className={`p-3 text-left font-semibold sticky left-0 z-10 ${darkMode ? 'bg-slate-800/90 backdrop-blur' : 'bg-white/90 backdrop-blur'} shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>
-                                                        {room.name}
-                                                    </td>
-                                                    {availableSlotsSelected.map((slot, sIdx) => {
-                                                        const fixedInfo = targetFixed.find(f => {
-                                                            if (f.room !== room.name) return false;
-                                                            const times = f.timeSlot.split(" - ");
-                                                            if (times.length === 2) {
-                                                                return getSlotRange(times[0], times[1], availableSlotsSelected).includes(slot);
-                                                            }
-                                                            return f.timeSlot === slot;
-                                                        });
-
-                                                        const bookInfo = targetBookings.find(b => {
-                                                            if (b.room !== room.name) return false;
-                                                            const times = b.timeSlot.split(" - ");
-                                                            if (times.length === 2) {
-                                                                return getSlotRange(times[0], times[1], availableSlotsSelected).includes(slot);
-                                                            }
-                                                            return b.timeSlot === slot;
-                                                        });
-
-                                                        return (
-                                                            <td key={sIdx} className="p-1">
-                                                                {fixedInfo ? (
-                                                                    <div title={`[Fixed] ${fixedInfo.purpose}`} className="w-full h-8 mx-auto bg-amber-500 rounded-md flex items-center justify-center cursor-help transition-transform hover:scale-110 shadow-sm border border-amber-600">
-                                                                        <i className="fas fa-lock text-white text-[10px]"></i>
-                                                                    </div>
-                                                                ) : bookInfo ? (
-                                                                    <div title={`${bookInfo.teacherName} : ${bookInfo.purpose}`} className="w-full h-8 mx-auto bg-green-500 rounded-md flex items-center justify-center cursor-help transition-transform hover:scale-110 shadow-sm border border-green-600">
-                                                                        <i className="fas fa-user text-white text-[10px]"></i>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className={`w-full h-8 mx-auto rounded-md ${darkMode ? 'bg-slate-800/50' : 'bg-slate-100'} border border-dashed ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}></div>
-                                                                )}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                    
-                                    <div className="mt-6 flex flex-wrap items-center justify-center gap-6 text-xs font-semibold">
-                                        <div className="flex items-center text-slate-500"><div className="w-4 h-4 bg-green-500 rounded border border-green-600 mr-2 shadow-sm"></div> Normal Booking</div>
-                                        <div className="flex items-center text-slate-500"><div className="w-4 h-4 bg-amber-500 rounded border border-amber-600 mr-2 shadow-sm"></div> Fixed Schedule</div>
-                                        <div className="flex items-center text-slate-500"><div className={`w-4 h-4 border border-dashed rounded mr-2 ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-100 border-slate-300'}`}></div> Available</div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                );
-            };
-
-            const BookingForm = () => {
-                const [formName, setFormName] = useState("");
-                const [formDate, setFormDate] = useState("");
-                const [formStart, setFormStart] = useState("");
-                const [formEnd, setFormEnd] = useState("");
-                const [formRoom, setFormRoom] = useState("");
-                const [formPurpose, setFormPurpose] = useState("");
-
-                const todayStr = getSafeYYYYMMDD(new Date());
-                const dayOfWeek = getDayOfWeek(formDate);
-                const availableSlots = getSlotsForDay(dayOfWeek);
-                
-                const selectedRoomObj = formRoom ? rooms.find(r => r.name === formRoom) : null;
-
-                const isSlotBooked = (slotToCheck, customBookings = bookings) => {
-                    if (!formDate || !formRoom) return false;
-                    
-                    const isFixed = fixedSchedules.some(f => {
-                        if (parseInt(f.dayOfWeek) !== dayOfWeek || f.room !== formRoom) return false;
-                        const times = f.timeSlot.split(" - ");
-                        if (times.length === 2) {
-                            return getSlotRange(times[0], times[1], availableSlots).includes(slotToCheck);
-                        }
-                        return f.timeSlot === slotToCheck;
-                    });
-                    if(isFixed) return true;
-
-                    return customBookings.some(b => {
-                        if (b.date !== formDate || b.room !== formRoom) return false;
-                        const times = b.timeSlot.split(" - ");
-                        if (times.length === 2) {
-                            return getSlotRange(times[0], times[1], availableSlots).includes(slotToCheck);
-                        }
-                        return b.timeSlot === slotToCheck;
-                    });
-                };
-
-                const handleSubmit = async (e) => {
-                    e.preventDefault();
-                    if (!formName || !formDate || !formStart || !formEnd || !formRoom || !formPurpose) {
-                        showNotification("Please fill in all fields.", "error"); return;
-                    }
-                    if (dayOfWeek === 0 || dayOfWeek === 6) {
-                        showNotification("Weekend bookings are not allowed.", "error"); return;
-                    }
-
-                    setLoading(true);
-                    
-                    // Pre-flight check from server to prevent double booking
-                    let latestBookingsToVerify = bookings;
-                    if (SCRIPT_URL) {
-                        try {
-                            const res = await fetch(SCRIPT_URL + "?t=" + new Date().getTime());
-                            if (res.ok) {
-                                const data = await res.json();
-                                latestBookingsToVerify = data.bookings || [];
-                            }
-                        } catch(e) {
-                            console.warn("Pre-flight check failed, proceeding with local validation.");
-                        }
-                    }
-
-                    const rangeToBook = getSlotRange(formStart, formEnd, availableSlots);
-                    const collision = rangeToBook.some(s => isSlotBooked(s, latestBookingsToVerify));
-                    
-                    if (collision) {
-                        setLoading(false);
-                        showNotification("🔴 MAAF! Slot ini telah diambil. Sila pilih masa yang lain.", "error");
-                        setBookings(latestBookingsToVerify); 
-                        return;
-                    }
-                    
-                    const finalTimeSlot = formStart === formEnd ? formStart : `${formStart} - ${formEnd}`;
-
-                    await handleAddBooking({
-                        teacherName: formName,
-                        purpose: formPurpose,
-                        date: formDate,
-                        timeSlot: finalTimeSlot,
-                        room: formRoom
-                    });
-                };
-
-                return (
-                    <div className="max-w-4xl mx-auto animate-fade-in">
-                        <h2 className="text-2xl font-bold mb-6">New Booking</h2>
-                        <div className={`p-6 md:p-8 rounded-2xl shadow-lg ${darkMode ? 'glass-dark' : 'glass-light'}`}>
-                            
-                            {selectedRoomObj && (
-                                <div className="mb-6 rounded-xl overflow-hidden h-48 sm:h-64 bg-slate-200 relative shadow-inner">
-                                    <img src={selectedRoomObj.image} alt="Room" className="w-full h-full object-contain bg-slate-200" onError={(e) => { e.target.src = "https://placehold.co/800x400/475569/ffffff?text=Image+Not+Found" }} />
-                                    <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/70 to-transparent p-4">
-                                        <h3 className="text-white font-bold text-xl">{selectedRoomObj.name}</h3>
-                                    </div>
-                                </div>
-                            )}
-
-                            <form onSubmit={handleSubmit} className="space-y-5">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Teacher's Name</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i className="fas fa-user"></i></div>
-                                            <input type="text" value={formName} onChange={e => setFormName(e.target.value)} required placeholder="e.g. Cikgu Ali" className={`w-full pl-10 pr-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none transition-shadow ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white/50 border-slate-300'}`} />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Special Room</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i className="fas fa-door-open"></i></div>
-                                            <select value={formRoom} onChange={e => setFormRoom(e.target.value)} required className={`w-full pl-10 pr-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none appearance-none ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white/50 border-slate-300'}`}>
-                                                <option value="" disabled>Select Room</option>
-                                                {rooms.map((r, i) => <option key={i} value={r.name}>{r.name}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Date</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i className="fas fa-calendar"></i></div>
-                                            <input type="date" min={todayStr} value={formDate} onChange={e => { setFormDate(e.target.value); setFormStart(""); setFormEnd(""); }} required className={`w-full pl-10 pr-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white/50 border-slate-300'}`} />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Purpose / Subject</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i className="fas fa-book"></i></div>
-                                            <input type="text" value={formPurpose} onChange={e => setFormPurpose(e.target.value)} required placeholder="e.g. Science Class 5A" className={`w-full pl-10 pr-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none transition-shadow ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white/50 border-slate-300'}`} />
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                {formDate && (dayOfWeek === 0 || dayOfWeek === 6) ? (
-                                    <div className="p-4 bg-red-100 text-red-700 rounded-lg text-sm border border-red-200">
-                                        <i className="fas fa-exclamation-circle mr-2"></i> Weekends are not available for booking.
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">Start Time</label>
-                                            <select value={formStart} onChange={e => setFormStart(e.target.value)} required className={`w-full p-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white/50 border-slate-300'}`}>
-                                                <option value="" disabled>Select Start</option>
-                                                {availableSlots.map((slot, i) => {
-                                                    const isBooked = isSlotBooked(slot);
-                                                    return <option key={i} value={slot} disabled={isBooked} className={isBooked ? "text-slate-400 line-through" : ""}>{slot} {isBooked ? "(Booked)" : ""}</option>
-                                                })}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">End Time</label>
-                                            <select value={formEnd} onChange={e => setFormEnd(e.target.value)} required className={`w-full p-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none ${darkMode ? 'bg-slate-800/50 border-slate-600' : 'bg-white/50 border-slate-300'}`}>
-                                                <option value="" disabled>Select End</option>
-                                                {availableSlots.map((slot, i) => {
-                                                    if(formStart && availableSlots.indexOf(slot) < availableSlots.indexOf(formStart)) return <option key={i} disabled className="hidden">{slot}</option>;
-                                                    const isBooked = isSlotBooked(slot);
-                                                    return <option key={i} value={slot} disabled={isBooked} className={isBooked ? "text-slate-400 line-through" : ""}>{slot} {isBooked ? "(Booked)" : ""}</option>
-                                                })}
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <button type="submit" disabled={loading} className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all flex justify-center items-center">
-                                    {loading ? <i className="fas fa-spinner fa-spin"></i> : <><i className="fas fa-paper-plane mr-2"></i> Confirm Booking</>}
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                );
-            };
-
-            const ListView = () => {
-                const [filterDate, setFilterDate] = useState("");
-                
-                const filteredBookings = useMemo(() => {
-                    let list = [...bookings].sort((a, b) => new Date(b.date) - new Date(a.date));
-                    if (filterDate) list = list.filter(b => b.date === filterDate);
-                    return list;
-                }, [bookings, filterDate]);
-
-                const downloadPDF = () => {
-                    const element = document.getElementById('report-table');
-                    const opt = {
-                        margin: 0.5,
-                        filename: `Report_SMKPekan_${filterDate || 'All'}.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2 },
-                        jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
-                    };
-                    html2pdf().set(opt).from(element).save();
-                };
-
-                return (
-                    <div className="animate-fade-in">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                            <h2 className="text-2xl font-bold">Booking Records</h2>
-                            <div className="flex gap-3 w-full sm:w-auto">
-                                <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className={`px-3 py-2 rounded-lg border ${darkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-300'}`} />
-                                <button onClick={() => setFilterDate("")} className="px-3 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors">Clear</button>
-                                <button onClick={downloadPDF} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition-colors flex items-center"><i className="fas fa-file-pdf mr-2"></i> PDF</button>
-                            </div>
-                        </div>
-
-                        <div id="report-table" className={`rounded-2xl shadow-lg overflow-hidden ${darkMode ? 'glass-dark' : 'glass-light'}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className={`${darkMode ? 'bg-slate-800/80' : 'bg-slate-100/80'} border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                                            <th className="p-4 font-semibold text-sm">Date</th>
-                                            <th className="p-4 font-semibold text-sm">Time</th>
-                                            <th className="p-4 font-semibold text-sm">Room</th>
-                                            <th className="p-4 font-semibold text-sm">Teacher</th>
-                                            <th className="p-4 font-semibold text-sm">Purpose</th>
-                                            <th className="p-4 font-semibold text-sm text-center" data-html2canvas-ignore>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredBookings.length === 0 ? (
-                                            <tr><td colSpan="6" className="p-8 text-center text-slate-500">No records found.</td></tr>
-                                        ) : (
-                                            filteredBookings.map((b, i) => (
-                                                <tr key={i} className={`border-b last:border-0 ${darkMode ? 'border-slate-700/50 hover:bg-slate-800/50' : 'border-slate-200 hover:bg-slate-50/50'} transition-colors`}>
-                                                    <td className="p-4 text-sm">{b.date}</td>
-                                                    <td className="p-4 text-sm whitespace-nowrap"><span className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded text-xs font-medium">{b.timeSlot}</span></td>
-                                                    <td className="p-4 text-sm font-medium">{b.room}</td>
-                                                    <td className="p-4 text-sm">{b.teacherName}</td>
-                                                    <td className="p-4 text-sm">{b.purpose}</td>
-                                                    <td className="p-4 text-center" data-html2canvas-ignore>
-                                                        <button onClick={() => handleDeleteBooking(b.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-full transition-colors" title="Delete">
-                                                            <i className="fas fa-trash-alt"></i>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            const SettingsView = () => {
-                const [localSettings, setLocalSettings] = useState(settings);
-                const [fDay, setFDay] = useState("1");
-                const [fStart, setFStart] = useState("");
-                const [fEnd, setFEnd] = useState("");
-                const [fRoom, setFRoom] = useState("");
-                const [fPurpose, setFPurpose] = useState("");
-                
-                const handleSettingChange = (key, value) => {
-                    setLocalSettings(prev => ({...prev, [key]: value}));
-                };
-                
-                const saveSettings = () => {
-                    handleUpdateSettings(localSettings);
-                };
-
-                const handleAddFixedSubmit = (e) => {
-                    e.preventDefault();
-                    if(!fStart || !fEnd || !fRoom || !fPurpose) { 
-                        showNotification("Sila lengkapkan borang.", "error"); 
-                        return; 
-                    }
-                    const finalTimeSlot = fStart === fEnd ? fStart : `${fStart} - ${fEnd}`;
-                    handleAddFixed({ dayOfWeek: parseInt(fDay), timeSlot: finalTimeSlot, room: fRoom, purpose: fPurpose });
-                    setFStart(""); setFEnd(""); setFRoom(""); setFPurpose("");
-                };
-
-                return (
-                    <div className="animate-fade-in space-y-8">
-                        <div>
-                            <h2 className="text-2xl font-bold mb-6">Admin Panel</h2>
-                            
-                            <div className={`p-6 rounded-2xl shadow-lg mb-8 ${darkMode ? 'glass-dark' : 'glass-light'}`}>
-                                <h3 className="font-semibold text-lg border-b pb-2 mb-4">Visual Settings (Banner & Logo)</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm mb-1 text-slate-500">School Banner URL (PNG/JPG)</label>
-                                        <input type="text" value={localSettings.bannerUrl || ""} onChange={e => handleSettingChange('bannerUrl', e.target.value)} placeholder="e.g. 2.png or https://... " className={`w-full p-2 rounded border text-sm ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`} />
-                                        <p className="text-xs mt-1 text-slate-400">Leave blank to use default '2.png'. Direct image link only.</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm mb-1 text-slate-500">School Logo URL (Sidebar)</label>
-                                        <input type="text" value={localSettings.logoUrl || ""} onChange={e => handleSettingChange('logoUrl', e.target.value)} placeholder="e.g. logo.png or https://... " className={`w-full p-2 rounded border text-sm ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`} />
-                                        <p className="text-xs mt-1 text-slate-400">Leave blank to use default 'logo.png'. Direct image link only.</p>
-                                    </div>
-                                </div>
-                                <h3 className="font-semibold text-lg border-b pb-2 mb-4 mt-6">Room Profile Pictures (Image URLs)</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {DEFAULT_ROOMS.map((r, i) => (
-                                        <div key={i} className="flex flex-col">
-                                            <label className="text-xs mb-1 font-medium">{r.name}</label>
-                                            <input type="text" value={localSettings[`img_${r.name}`] || ""} onChange={e => handleSettingChange(`img_${r.name}`, e.target.value)} placeholder="Image URL..." className={`w-full p-2 rounded border text-sm ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`} />
-                                        </div>
-                                    ))}
-                                </div>
-                                <button onClick={saveSettings} className="mt-6 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700">Save Visual Settings</button>
-                            </div>
-
-                            <div className={`p-6 rounded-2xl shadow-lg ${darkMode ? 'glass-dark' : 'glass-light'}`}>
-                                <h3 className="font-semibold text-lg border-b pb-2 mb-4">Fixed Schedules Management (Jadual Tetap)</h3>
-                                <form onSubmit={handleAddFixedSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 mb-6 items-end">
-                                    <div>
-                                        <label className="block text-xs mb-1">Day</label>
-                                        <select value={fDay} onChange={e => setFDay(e.target.value)} className={`w-full p-2 rounded border text-sm ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                                            <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs mb-1">Start Time</label>
-                                        <select value={fStart} onChange={e => setFStart(e.target.value)} required className={`w-full p-2 rounded border text-sm ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                                            <option value="">Select</option>
-                                            {(fDay === "5" ? TIME_SLOTS_FRIDAY : TIME_SLOTS_NORMAL).map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs mb-1">End Time</label>
-                                        <select value={fEnd} onChange={e => setFEnd(e.target.value)} required className={`w-full p-2 rounded border text-sm ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                                            <option value="">Select</option>
-                                            {(fDay === "5" ? TIME_SLOTS_FRIDAY : TIME_SLOTS_NORMAL).map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs mb-1">Room</label>
-                                        <select value={fRoom} onChange={e => setFRoom(e.target.value)} required className={`w-full p-2 rounded border text-sm ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                                            <option value="">Select Room</option>
-                                            {DEFAULT_ROOMS.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs mb-1">Purpose/Class</label>
-                                        <div className="flex gap-2">
-                                            <input type="text" value={fPurpose} onChange={e => setFPurpose(e.target.value)} required placeholder="e.g. Science 5A" className={`w-full p-2 rounded border text-sm ${darkMode ? 'bg-slate-800' : 'bg-white'}`} />
-                                            <button type="submit" className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"><i className="fas fa-plus"></i></button>
-                                        </div>
-                                    </div>
-                                </form>
-
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-sm border-collapse">
-                                        <thead>
-                                            <tr className="border-b dark:border-slate-700">
-                                                <th className="p-2">Day</th><th className="p-2">Time</th><th className="p-2">Room</th><th className="p-2">Purpose</th><th className="p-2 text-center">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {fixedSchedules.length === 0 ? <tr><td colSpan="5" className="p-4 text-center text-slate-500">No fixed schedules yet.</td></tr> : 
-                                             fixedSchedules.map((f, i) => (
-                                                <tr key={i} className="border-b dark:border-slate-700/50">
-                                                    <td className="p-2">{DAYS[parseInt(f.dayOfWeek)]}</td>
-                                                    <td className="p-2"><span className="px-2 py-1 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 rounded text-xs">{f.timeSlot}</span></td>
-                                                    <td className="p-2 font-medium">{f.room}</td>
-                                                    <td className="p-2">{f.purpose}</td>
-                                                    <td className="p-2 text-center">
-                                                        <button onClick={() => handleDeleteFixed(f.id)} className="text-red-500 hover:text-red-700"><i className="fas fa-trash-alt"></i></button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
 
             return (
                 <div className={`min-h-screen flex flex-col md:flex-row transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
                     
+                    {/* Toast Notification */}
                     {notification && (
-                        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-xl flex items-center gap-3 animate-fade-in ${notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}>
-                            <i className={`fas ${notification.type === 'error' ? 'fa-exclamation-triangle' : 'fa-check-circle'} text-xl`}></i>
-                            <span className="font-medium">{notification.msg}</span>
+                        <div className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 animate-fade-in border ${notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/90 dark:border-red-800 dark:text-red-100' : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/90 dark:border-emerald-800 dark:text-emerald-100'}`}>
+                            <i className={`fas ${notification.type === 'error' ? 'fa-times-circle text-red-500 dark:text-red-300' : 'fa-check-circle text-emerald-500 dark:text-emerald-300'} text-2xl`}></i>
+                            <span className="font-bold text-base">{notification.msg}</span>
                         </div>
                     )}
 
-                    <div className={`w-full md:w-64 flex-shrink-0 flex flex-col z-30 transition-all ${darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'} border-r backdrop-blur-xl md:sticky top-0 md:h-screen`}>
-                        
-                        {/* SIDEBAR LOGO AREA */}
-                        <div className="p-6 flex items-center gap-3 border-b border-inherit">
-                            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden shadow-sm">
-                                {settings.logoUrl ? (
-                                    <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
-                                ) : (
-                                    <img src="logo.png" alt="Logo" className="w-full h-full object-contain" onError={(e) => { 
-                                        e.target.outerHTML = '<i class="fas fa-school text-blue-600 text-xl"></i>'; 
-                                    }} />
-                                )}
+                    {/* Sidebar Navigation */}
+                    <div className={`w-full md:w-64 flex-shrink-0 flex flex-col z-30 transition-all ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'} border-r backdrop-blur-xl md:sticky top-0 md:h-screen shadow-lg md:shadow-none`}>
+                        <div className="p-6 flex items-center gap-4 border-b border-inherit">
+                            <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 overflow-hidden shadow-sm">
+                                <img src="logo.png" alt="Logo" className="w-full h-full object-contain p-1" onError={(e) => { e.target.outerHTML = '<i class="fas fa-school text-blue-600 text-2xl"></i>'; }} />
                             </div>
                             <div>
                                 <h1 className="font-bold text-lg leading-tight tracking-tight">SMK Pekan</h1>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide uppercase">Booking System</p>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-wider uppercase mt-1">Booking System</p>
                             </div>
                         </div>
                         
-                        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-                            <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'dashboard' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                                <i className="fas fa-home w-5 text-center"></i> Dashboard
-                            </button>
-                            <button onClick={() => setActiveTab('new')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'new' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                                <i className="fas fa-calendar-plus w-5 text-center"></i> New Booking
-                            </button>
-                            <button onClick={() => setActiveTab('list')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'list' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                                <i className="fas fa-list-alt w-5 text-center"></i> Records
-                            </button>
-                            <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                                <i className="fas fa-cog w-5 text-center"></i> Admin Panel
-                            </button>
+                        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
+                            <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${activeTab === 'dashboard' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-[1.02]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}><i className="fas fa-chart-pie w-6 text-center"></i> Dashboard</button>
+                            <button onClick={() => setActiveTab('new')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${activeTab === 'new' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-[1.02]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}><i className="fas fa-calendar-plus w-6 text-center"></i> New Booking</button>
+                            <button onClick={() => setActiveTab('list')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${activeTab === 'list' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-[1.02]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}><i className="fas fa-folder-open w-6 text-center"></i> Records & Report</button>
+                            <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold ${activeTab === 'settings' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-[1.02]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}><i className="fas fa-sliders-h w-6 text-center"></i> Admin Panel</button>
                         </div>
                         
-                        <div className="p-4 border-t border-inherit space-y-3">
+                        <div className="p-5 border-t border-inherit space-y-4 bg-slate-50/50 dark:bg-slate-900/50">
                             <div className="flex items-center justify-between px-2">
-                                <span className="text-sm font-medium">Theme</span>
-                                <button onClick={toggleDarkMode} className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${darkMode ? 'bg-blue-600 justify-end' : 'bg-slate-300 justify-start'}`}>
-                                    <div className="w-4 h-4 rounded-full bg-white shadow"></div>
-                                </button>
+                                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Dark Mode</span>
+                                <button onClick={() => { setDarkMode(!darkMode); localStorage.setItem('darkMode', !darkMode); if(!darkMode) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); }} className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors shadow-inner ${darkMode ? 'bg-blue-600 justify-end' : 'bg-slate-300 dark:bg-slate-600 justify-start'}`}><div className="w-4 h-4 rounded-full bg-white shadow-md transform transition-transform"></div></button>
                             </div>
-                            <div className="flex items-center gap-2 px-2 text-xs font-medium text-slate-500">
-                                <div className={`w-2 h-2 rounded-full ${SCRIPT_URL ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                                {SCRIPT_URL ? 'Online Sync Active' : 'Offline Mode'}
+                            <div className="flex items-center gap-2 px-2 text-xs font-bold text-slate-500">
+                                <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${SCRIPT_URL ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                {SCRIPT_URL ? 'ONLINE (Auto-Sync)' : 'OFFLINE MODE'}
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col w-full overflow-hidden relative">
+                    {/* Main Content */}
+                    <div className="flex-1 flex flex-col w-full overflow-hidden">
+                        
+                        {/* Offline Warning Banner */}
                         {!SCRIPT_URL && (
-                            <div className="w-full bg-red-600 text-white text-center py-2 px-4 text-sm font-bold shadow-md z-40">
-                                <i className="fas fa-exclamation-triangle mr-2"></i> 
-                                SCRIPT_URL KOSONG. Mod Offline. Data hanya disimpan di peranti ini.
+                            <div className="w-full bg-red-600 text-white text-center py-2.5 px-4 text-sm font-bold shadow-md z-40 flex items-center justify-center gap-2">
+                                <i className="fas fa-exclamation-triangle"></i> SCRIPT_URL Kosong! Sistem beroperasi secara Offline (Local Storage sahaja).
                             </div>
                         )}
                         
-                        {/* FIXED BANNER AREA */}
-                        <div className="w-full bg-slate-200 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 shadow-inner flex items-center justify-center overflow-hidden">
-                             <img 
-                                src={settings.bannerUrl || "2.png"} 
-                                alt="School Banner" 
-                                className="w-full h-auto object-contain object-center" 
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                            />
+                        {/* Banner Atas (Kekal) */}
+                        <div className="w-full bg-slate-200 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 flex items-center justify-center overflow-hidden">
+                             <img src="2.png" alt="School Banner" className="w-full h-auto object-contain object-center" onError={(e) => { e.target.style.display = 'none'; }} />
                         </div>
 
+                        {/* Tab Content */}
                         <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-                            {activeTab === 'dashboard' && <DashboardView />}
-                            {activeTab === 'new' && <BookingForm />}
-                            {activeTab === 'list' && <ListView />}
-                            {activeTab === 'settings' && <SettingsView />}
+                            <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none' }}>
+                                <DashboardView bookings={bookings} fixedSchedules={fixedSchedules} darkMode={darkMode} />
+                            </div>
+                            <div style={{ display: activeTab === 'new' ? 'block' : 'none' }}>
+                                <BookingForm bookings={bookings} fixedSchedules={fixedSchedules} handleAddBooking={handleAddBooking} loading={loading} showNotification={showNotification} darkMode={darkMode} />
+                            </div>
+                            <div style={{ display: activeTab === 'list' ? 'block' : 'none' }}>
+                                <ListView bookings={bookings} handleDeleteBooking={handleDeleteBooking} darkMode={darkMode} />
+                            </div>
+                            <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
+                                <SettingsView fixedSchedules={fixedSchedules} handleAddFixed={handleAddFixed} handleDeleteFixed={handleDeleteFixed} darkMode={darkMode} showNotification={showNotification} />
+                            </div>
                         </div>
                     </div>
                 </div>
